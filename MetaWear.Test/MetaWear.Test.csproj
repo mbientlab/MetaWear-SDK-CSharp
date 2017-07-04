@@ -1,0 +1,105 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{8B19D12F-867B-40B1-BAB9-C9BF953AD6D4}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>MbientLab.MetaWear.Test</RootNamespace>
+    <AssemblyName>MetaWear.Test</AssemblyName>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <ProjectTypeGuids>{3AC096D0-A1C2-E12C-1390-A8335801FDAB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">15.0</VisualStudioVersion>
+    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <ReferencePath>$(ProgramFiles)\Common Files\microsoft shared\VSTT\$(VisualStudioVersion)\UITestExtensionPackages</ReferencePath>
+    <IsCodedUITest>False</IsCodedUITest>
+    <TestProjectType>UnitTest</TestProjectType>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
+    <TargetFrameworkProfile />
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="nunit.framework, Version=3.7.0.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
+      <HintPath>..\packages\NUnit.3.7.0\lib\net45\nunit.framework.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AccelerometerTest.cs" />
+    <Compile Include="AmbientLightLtr329Test.cs" />
+    <Compile Include="BarometerBme280StandbyTest.cs" />
+    <Compile Include="BarometerBmp280StandbyTest.cs" />
+    <Compile Include="BarometerBoschTest.cs" />
+    <Compile Include="ColorTcs34725Test.cs" />
+    <Compile Include="DataProcessorTest.cs" />
+    <Compile Include="DebugRouteTest.cs" />
+    <Compile Include="DebugTest.cs" />
+    <Compile Include="DeserializeTest.cs" />
+    <Compile Include="GpioTest.cs" />
+    <Compile Include="GyroBmi160Test.cs" />
+    <Compile Include="HapticTest.cs" />
+    <Compile Include="HumidityBme280Test.cs" />
+    <Compile Include="I2CTest.cs" />
+    <Compile Include="IBeaconTest.cs" />
+    <Compile Include="InitializeResponse.cs" />
+    <Compile Include="LedPatternTest.cs" />
+    <Compile Include="LedTest.cs" />
+    <Compile Include="LoggingDataTest.cs" />
+    <Compile Include="LoggingTest.cs" />
+    <Compile Include="MacroTest.cs" />
+    <Compile Include="MagnetometerBmm150Test.cs" />
+    <Compile Include="MetaWearBoardTest.cs" />
+    <Compile Include="NeoPixelTest.cs" />
+    <Compile Include="NunitPlatform.cs" />
+    <Compile Include="ProximityTsl2671Test.cs" />
+    <Compile Include="SensorFusionBoschTest.cs" />
+    <Compile Include="SettingsRev1Test.cs" />
+    <Compile Include="SettingsRev2Test.cs" />
+    <Compile Include="SettingsRev3Test.cs" />
+    <Compile Include="SettingsRev5Test.cs" />
+    <Compile Include="SettingsTest.cs" />
+    <Compile Include="SPITest.cs" />
+    <Compile Include="SwitchTest.cs" />
+    <Compile Include="TemperatureTest.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TimerTest.cs" />
+    <Compile Include="UnitTestBase.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MetaWear.DotNet\MetaWear.DotNet.csproj">
+      <Project>{0de30138-2666-4991-a572-3b3914a53146}</Project>
+      <Name>MetaWear.DotNet</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets" Condition="Exists('$(VSToolsPath)\TeamTest\Microsoft.TestTools.targets')" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
