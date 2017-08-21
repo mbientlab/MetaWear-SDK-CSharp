@@ -52,6 +52,11 @@ namespace MbientLab.MetaWear.Impl {
             return caller.Index(i);
         }
 
+        public IRouteBranchEnd Name(string name) {
+            caller.Name(name);
+            return this;
+        }
+
         public IRouteComponent To() {
             return caller.To();
         }
@@ -175,6 +180,55 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         [DataContract]
+        internal class AverageEditorInner : EditorImplBase, IHighPassEditor, ILowPassEditor {
+            internal AverageEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            
+            public void Modify(byte samples) {
+                config[2] = samples;
+                bridge.sendCommand(DATA_PROCESSOR, DataProcessor.PARAMETER, source.eventConfig[2], config);
+            }
+
+            public void Reset() {
+                bridge.sendCommand(new byte[] { (byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2] });
+            }
+        }
+
+        private IRouteComponent applyAverager(byte samples, byte type, string name) {
+            var hasHpf = state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision >= DataProcessor.HPF_REVISION;
+
+            if (source.attributes.length() <= 0) {
+                throw new IllegalRouteOperationException(string.Format("Cannot apply {0} filter to null data", name));
+            }
+            if (source.attributes.length() > 4 && !hasHpf) {
+                throw new IllegalRouteOperationException(string.Format("Cannot apply {0} filter to data longer than 4 bytes", name));
+            }
+
+            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
+
+            byte[] config = new byte[hasHpf ? 4 : 3];
+            config[0] = 0x3;
+            config[1] = (byte) (((source.attributes.length() - 1) & 0x3) | (((source.attributes.length() - 1) & 0x3) << 2) | ((hasHpf ? type : 0) << 5));
+            config[2] = samples;
+            if (hasHpf) {
+                config[3] = (byte) (source.attributes.sizes.Length - 1);
+            }
+            
+            return postCreate(null, new AverageEditorInner(config, processor, state.bridge));
+        }
+        public IRouteComponent HighPass(byte samples) {
+            if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.HPF_REVISION) {
+                throw new IllegalRouteOperationException("High pass filter not available on this firmware version");
+            }
+            return applyAverager(samples, 1, "high-pass");
+        }
+        public IRouteComponent LowPass(byte samples) {
+            return applyAverager(samples, 0, "low-pass");
+        }
+        public IRouteComponent Average(byte samples) {
+            return LowPass(samples);
+        }
+
+        [DataContract]
         internal class CounterEditorInner : EditorImplBase, ICounterEditor {
             internal CounterEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
@@ -208,42 +262,10 @@ namespace MbientLab.MetaWear.Impl {
                 command[0] = (byte)DATA_PROCESSOR;
                 command[1] = DataProcessor.STATE;
                 command[2] = source.eventConfig[2];
-                Array.Copy(Util.intToBytesLe((int) (source.scale(bridge) * value)), 0, command, 3, 4);
+                Array.Copy(Util.intToBytesLe((int)(source.scale(bridge) * value)), 0, command, 3, 4);
 
                 bridge.sendCommand(command);
             }
-        }
-
-        [DataContract]
-        internal class AverageEditorInner : EditorImplBase, IAverageEditor {
-            internal AverageEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
-            
-            public void Modify(byte samples) {
-                config[2] = samples;
-                bridge.sendCommand(DATA_PROCESSOR, DataProcessor.PARAMETER, source.eventConfig[2], config);
-            }
-
-            public void Reset() {
-                bridge.sendCommand(new byte[] { (byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2] });
-            }
-        }
-
-        public IRouteComponent Average(byte samples) {
-            if (source.attributes.length() <= 0) {
-                throw new IllegalRouteOperationException("Cannot average null data");
-            }
-            if (source.attributes.length() > 4) {
-                throw new IllegalRouteOperationException("Cannot average data longer than 4 bytes");
-            }
-
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-            byte[] config = new byte[]{
-                0x3,
-                (byte) (((source.attributes.length() - 1) & 0x3) | (((source.attributes.length() - 1) & 0x3) << 2)),
-                samples
-        };
-
-            return postCreate(null, new AverageEditorInner(config, processor, state.bridge));
         }
 
         public IRouteComponent Accumulate() {
@@ -891,6 +913,43 @@ namespace MbientLab.MetaWear.Impl {
             Array.Copy(Util.uintToBytesLe(period), 0, config, 2, 4);
             
             return postCreate(null, new TimeEditorInner(config, processor, state.bridge));
+        }
+
+        [DataContract]
+        internal class PackerEditorInner : EditorImplBase, IPackerEditor {
+            internal PackerEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+
+            public void Clear() {
+                bridge.sendCommand(new byte[] { (byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2] });
+            }
+        }
+        public IRouteComponent Pack(byte count) {
+            if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.ENHANCED_STREAMING_REVISION) {
+                throw new IllegalRouteOperationException("Current firmware does not support data packing");
+            }
+            if (source.attributes.length() * count + 3 > MetaWearBoard.MAX_PACKET_LENGTH) {
+                throw new IllegalRouteOperationException("Not enough space to in the ble packet to pack " + count + " data samples");
+            }
+
+            byte[] config = new byte[] { DataProcessor.TYPE_PACKER, (byte)((source.attributes.length() - 1) & 0x1f), (byte)((count - 1) & 0x1f) };
+            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopyCopies(count));
+
+            return postCreate(null, new PackerEditorInner(config, processor, state.bridge));
+        }
+
+        public IRouteComponent Account() {
+            if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.ENHANCED_STREAMING_REVISION) {
+                throw new IllegalRouteOperationException("Current firmware does not support data accounting");
+            }
+            if (source.attributes.length() + 4 + 3 > MetaWearBoard.MAX_PACKET_LENGTH) {
+                throw new IllegalRouteOperationException("Not enough space left in the ble packet to add accounter information");
+            }
+
+            const byte size = 4;
+            byte[] config = new byte[] { DataProcessor.TYPE_ACCOUNTER, (0x1 | ((size - 1) << 4)), 0x3 };
+            DataTypeBase processor = source.dataProcessorCopy(source, new DataAttributes(new byte[] { size, source.attributes.length() }, 1, 0, source.attributes.signed));
+
+            return postCreate(null, new NullEditor(config, processor, state.bridge));
         }
 
         private RouteComponent postCreate(DataTypeBase processorState, EditorImplBase editor) {

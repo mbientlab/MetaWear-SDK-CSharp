@@ -21,7 +21,7 @@ namespace MbientLab.MetaWear.Impl {
 
                 if (type == typeof(float)) {
                     if (datatype.attributes.signed) {
-                        switch (datatype.attributes.length()) {
+                        switch (Math.Min(datatype.attributes.unitLength(), bytes.Length - offset)) {
                             case 1:
                                 return (T)Convert.ChangeType((sbyte) (bytes[offset]) / Scale, type);
                             case 2:
@@ -33,7 +33,7 @@ namespace MbientLab.MetaWear.Impl {
                                 return (T)Convert.ChangeType(BitConverter.ToInt32(bytes, offset) / Scale, type);
                         }
                     } else {
-                        switch (datatype.attributes.length()) {
+                        switch (Math.Min(datatype.attributes.unitLength(), bytes.Length - offset)) {
                             case 1:
                                 return (T)Convert.ChangeType(bytes[offset] / Scale, type);
                             case 2:

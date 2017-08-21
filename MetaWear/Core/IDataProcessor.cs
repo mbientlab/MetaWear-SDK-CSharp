@@ -126,12 +126,12 @@ namespace MbientLab.MetaWear.Core {
             void Modify(uint period);
         }
         /// <summary>
-        /// Edits an average processor
-        /// <seealso cref="IRouteComponent.Average(byte)"/>
+        /// Edits a high pass filter
+        /// <seealso cref="IRouteComponent.HighPass(byte)"/>
         /// </summary>
-        public interface IAverageEditor : IEditor {
+        public interface IHighPassEditor : IEditor {
             /// <summary>
-            /// Change how many samples are used in the average calculation
+            /// Change how many samples are used to compute the value
             /// </summary>
             /// <param name="samples">New sample size</param>
             void Modify(byte samples);
@@ -139,6 +139,31 @@ namespace MbientLab.MetaWear.Core {
             /// Reset the running average
             /// </summary>
             void Reset();
+        }
+        /// <summary>
+        /// Edits a low pass filter
+        /// <seealso cref="IRouteComponent.LowPass(byte)"/>
+        /// </summary>
+        public interface ILowPassEditor : IEditor {
+            /// <summary>
+            /// Change how many samples are used to compute the value
+            /// </summary>
+            /// <param name="samples">New sample size</param>
+            void Modify(byte samples);
+            /// <summary>
+            /// Reset the running average
+            /// </summary>
+            void Reset();
+        }
+        /// <summary>
+        /// Edits a data packer
+        /// <seealso cref="IRouteComponent.Pack(byte)"/>
+        /// </summary>
+        public interface IPackerEditor : IEditor {
+            /// <summary>
+            /// Clears buffer of accumulated inputs
+            /// </summary>
+            void Clear();
         }
     }
 

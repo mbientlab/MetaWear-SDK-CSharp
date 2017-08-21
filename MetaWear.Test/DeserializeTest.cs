@@ -1,11 +1,12 @@
 ﻿using MbientLab.MetaWear.Core;
 using MbientLab.MetaWear.Core.DataProcessor;
+using MbientLab.MetaWear.Data;
 using MbientLab.MetaWear.Impl;
 using MbientLab.MetaWear.Peripheral;
 using MbientLab.MetaWear.Peripheral.SerialPassthrough;
 using MbientLab.MetaWear.Sensor;
 using NUnit.Framework;
-
+using System;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -154,6 +155,39 @@ namespace MbientLab.MetaWear.Test {
 
             var sensor = metawear.GetModule<ITemperature>().Sensors[0x3];
             sensor.Read();
+
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task PreserveObjectReferences() {
+            // Tests that object references are preserved in serialization
+            platform.fileSuffix = "bmi160_acc_route";
+            await metawear.DeserializeAsync();
+            await metawear.InitializeAsync();
+
+            Acceleration expected = new Acceleration(
+                    BitConverter.ToSingle(new byte[] { 0x00, 0xa8, 0xef, 0xbf }, 0),
+                    BitConverter.ToSingle(new byte[] { 0x00, 0xd8, 0x3a, 0xc0 }, 0),
+                    BitConverter.ToSingle(new byte[] { 0x00, 0x58, 0xbf, 0xbf }, 0)), 
+                actual = null;
+            metawear.GetModule<IAccelerometer>().Configure(range: 16f);
+            metawear.LookupRoute(0).AttachSubscriber(0, data => actual = data.Value<Acceleration>());
+            platform.sendMockResponse(new byte[] { 0x03, 0x04, 0x16, 0xc4, 0x94, 0xa2, 0x2a, 0xd0 });
+
+            Assert.That(actual, Is.Not.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task ReadBufferStateAsync() {
+            byte[][] expected = {
+                new byte[] {0x09, 0x84, 0x02}
+            };
+
+            platform.fileSuffix = "activity_buffer";
+            await metawear.DeserializeAsync();
+
+            metawear.GetModule<IDataProcessor>().State("rms_buffer").Read();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }

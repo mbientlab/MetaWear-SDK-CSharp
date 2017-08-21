@@ -39,6 +39,12 @@ namespace MbientLab.MetaWear.Impl {
             return new DataAttributes(sizesCopy, copies, 0, newSigned);
         }
 
+        internal DataAttributes dataProcessorCopyCopies(byte newCopies) {
+            byte[] sizesCopy = new byte[sizes.Length];
+            Array.Copy(sizes, sizesCopy, sizes.Length);
+            return new DataAttributes(sizesCopy, newCopies, 0, signed);
+        }
+
         public byte length() {
             return (byte)(unitLength() * copies);
         }

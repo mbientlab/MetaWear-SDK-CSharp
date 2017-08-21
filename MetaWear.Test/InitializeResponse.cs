@@ -21,7 +21,7 @@ namespace MbientLab.MetaWear.Test {
             MODULE_RESPONSE.Add(typeof(INeoPixel), new byte[] {0x06, 0x80, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(IIBeacon), new byte[] {0x07, 0x80, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(IHaptic), new byte[] {0x08, 0x80, 0x00, 0x00});
-            MODULE_RESPONSE.Add(typeof(IDataProcessor), new byte[] {0x09, 0x80, 0x00, 0x01, 0x1c});
+            MODULE_RESPONSE.Add(typeof(IDataProcessor), new byte[] {0x09, 0x80, 0x00, 0x02, 0x1c});
             MODULE_RESPONSE.Add(typeof(ILogging), new byte[] {0x0b, 0x80, 0x00, 0x02, 0x08, 0x80, 0x2b, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(ISerialPassthrough), new byte[] {0x0d, 0x80, 0x00, 0x01});
             MODULE_RESPONSE.Add(typeof(IMacro), new byte[] {0x0f, 0x80, 0x00, 0x01, 0x08});
@@ -84,13 +84,15 @@ namespace MbientLab.MetaWear.Test {
             serialNumber = new byte[] { 0x30, 0x30, 0x33, 0x42, 0x46, 0x39 };
         }
 
-        internal InitializeResponse(params Type[] moduleTypes) : this("deadbeef", "0.3", "1.2.5") {
+        internal InitializeResponse(params Type[] moduleTypes) : this("1.2.5", moduleTypes) {  }
+
+        internal InitializeResponse(string firmware, params Type[] moduleTypes) : this("deadbeef", "0.3", firmware) {
             moduleResponses = CreateModuleResponses(moduleTypes);
         }
 
-        internal InitializeResponse(Model model) {
+        internal InitializeResponse(Model model, string firmware = "1.2.5") {
             hardwareRevision = Encoding.ASCII.GetBytes("0.1");
-            firmwareRevision = Encoding.ASCII.GetBytes("1.2.5");
+            firmwareRevision = Encoding.ASCII.GetBytes(firmware);
 
             switch (model) {
                 case Model.MetaWearR:

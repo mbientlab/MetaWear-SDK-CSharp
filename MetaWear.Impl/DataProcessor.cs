@@ -37,10 +37,13 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(ThresholdEditorInner))]
     [KnownType(typeof(DifferentialEditorInner))]
     [KnownType(typeof(TimeEditorInner))]
+    [KnownType(typeof(PackerEditorInner))]
+    [KnownType(typeof(NullEditor))]
     [KnownType(typeof(DataTypeBase))]
     [DataContract]
     class DataProcessor : ModuleImplBase, IDataProcessor {
-        internal const byte TIME_PASSTHROUGH_REVISION = 1;
+        internal const byte TYPE_ACCOUNTER = 0x11, TYPE_PACKER = 0x10;
+        internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2;
         internal const byte ADD = 2,
                 NOTIFY = 3,
                 STATE = 4,
@@ -56,6 +59,7 @@ namespace MbientLab.MetaWear.Impl {
         private LinkedList<Tuple<DataTypeBase, EditorImplBase>> pendingProcessors;
         private Queue<byte> successfulProcessors;
         private TaskCompletionSource<Queue<byte>> createProcessorsTask;
+        private Dictionary<string, IForcedDataProducer> stateDataProducers;
 
         public DataProcessor(IModuleBoardBridge bridge) : base(bridge) {
         }
@@ -78,6 +82,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected override void init() {
+            stateDataProducers = new Dictionary<string, IForcedDataProducer>();
             bridge.addRegisterResponseHandler(Tuple.Create((byte) DATA_PROCESSOR, ADD), response => {
                 createTimeout.Dispose();
 
@@ -96,7 +101,15 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public IForcedDataProducer State(string name) {
-            throw new NotImplementedException();
+            if (stateDataProducers.TryGetValue(name, out var producer)) {
+                return producer;
+            }
+            if (nameToId.TryGetValue(name, out var id) && activeProcessors.TryGetValue(id, out var value)) {
+                producer = new ForcedDataProducer(value.Item1, bridge);
+                stateDataProducers.Add(name, producer);
+                return producer;
+            }
+            return null;
         }
 
         public T Edit<T>(string name) where T : class, IEditor {
@@ -149,6 +162,10 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             activeProcessors.Remove(id);
+        }
+
+        internal Tuple<DataTypeBase, EditorImplBase> lookupProcessor(byte id) {
+            return activeProcessors.TryGetValue(id, out var result) ? result : null;
         }
     }
 }

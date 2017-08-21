@@ -84,6 +84,9 @@ namespace MbientLab.MetaWear.Test {
                 accelerometer.Configure(range: 4f);
                 platform.sendMockResponse(new byte[] { 0x03, 0x04, 0x16, 0xc4, 0x94, 0xa2, 0x2a, 0xd0 });
 
+                platform.fileSuffix = "bmi160_acc_route";
+                await metawear.SerializeAsync();
+
             } else if (accelerometer is IAccelerometerBma255) {
                 // (-4.7576f, 2.2893f, 2.9182f)
 

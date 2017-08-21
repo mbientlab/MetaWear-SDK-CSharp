@@ -14,5 +14,12 @@
         /// <param name="i">Position in the split values array to return</param>
         /// <returns>Object representing the component value</returns>
         IRouteComponent Index(int i);
+        /// <summary>
+        /// Assigns a user-defined name identifying the processor or producer.  If used with a processor, the processor can be 
+        /// retrieved by said name with the <see cref="IDataProcessor"/> interface.
+        /// </summary>
+        /// <param name="name">Assigned unique name to the most recent data producer (sensor or data processor)</param>
+        /// <returns>Calling object</returns>
+        IRouteBranchEnd Name(string name);
     }
 }

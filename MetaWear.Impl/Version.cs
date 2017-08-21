@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
     class Version : IComparable<Version> {
-        private const string VERSION_STRING_PATTERN = @"(\d)+\.(\d)+\.(\d)+";
+        private const string VERSION_STRING_PATTERN = @"(\d+)\.(\d+)\.(\d+)";
 
         [DataMember] private readonly int major, minor, step;
 

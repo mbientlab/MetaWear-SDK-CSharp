@@ -6,7 +6,7 @@ namespace MbientLab.MetaWear.Test {
     internal class SettingsTestFixtureData {
         public static IEnumerable Params {
             get {
-                for(byte i = 0; i <= 5; i++) {
+                for(byte i = 0; i <= 6; i++) {
                     yield return new TestFixtureData(i);
                 }
             }
@@ -59,9 +59,21 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void SetAdInterval() {
-            byte[][] expected = revision >= 1 ?
-                new byte[][] { new byte[] { 0x11, 0x02, 0x9b, 0x02, 0xb4 }} :
-                new byte[][] { new byte[] { 0x11, 0x02, 0xa1, 0x01, 0xb4 }};
+            byte[][] expected;
+
+            if (revision >= 6) {
+                expected = new byte[][] 
+                    { new byte[] { 0x11, 0x02, 0x9b, 0x02, 0xb4, 0x00 }
+                };
+            } else if (revision >= 1) {
+                expected = new byte[][] {
+                    new byte[] { 0x11, 0x02, 0x9b, 0x02, 0xb4 }
+                };
+            } else {
+                expected = new byte[][] {
+                    new byte[] { 0x11, 0x02, 0xa1, 0x01, 0xb4 }
+                };
+            }
 
             settings.EditBleAdConfig(interval: 417, timeout: 180);
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));

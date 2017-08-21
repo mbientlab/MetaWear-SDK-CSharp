@@ -21,7 +21,7 @@
     </metadata>
     <files>
         <file src="build\**" target="build" />
-        <file src="..\MetaWear.Uwp\bin\Release\MbientLab.MetaWear.Uwp.**" target="lib\uap10.0" />
-        <file src="..\MetaWear.DotNet\bin\Release\MbientLab.MetaWear.DotNet.**" target="lib\net462" />
+        <file src="..\MetaWear.Uwp\bin\Release\MbientLab.MetaWear.Uwp.dll" target="lib\uap10.0" />
+        <file src="..\MetaWear.DotNet\bin\Release\MbientLab.MetaWear.DotNet.dll" target="lib\net462" />
     </files>
 </package>

@@ -12,7 +12,7 @@ namespace MbientLab.MetaWear.Impl {
     [DataContract]
     class Settings : ModuleImplBase, ISettings {
         private const float AD_INTERVAL_STEP = 0.625f, CONN_INTERVAL_STEP = 1.25f, SUPERVISOR_TIMEOUT_STEP = 10f;
-        private const byte CONN_PARAMS_REVISION = 1, DISCONNECTED_EVENT_REVISION = 2, BATTERY_REVISION = 3, CHARGE_STATUS_REVISION = 5;
+        private const byte CONN_PARAMS_REVISION = 1, DISCONNECTED_EVENT_REVISION = 2, BATTERY_REVISION = 3, CHARGE_STATUS_REVISION = 5, WHITELIST_REVISION = 6;
         private const byte DEVICE_NAME = 1, AD_INTERVAL = 2, TX_POWER = 3,
             START_ADVERTISING = 5,
             SCAN_RESPONSE = 7, PARTIAL_SCAN_RESPONSE = 8,
@@ -221,16 +221,24 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             if (timeout != null || interval != null) {
+                byte revision = bridge.lookupModuleInfo(SETTINGS).revision;
                 if (interval == null) {
-                    interval = 0;
+                    interval = 417;
                 }
-                if (bridge.lookupModuleInfo(SETTINGS).revision >= CONN_PARAMS_REVISION) {
+                if (timeout == null) {
+                    timeout = 0;
+                }
+                if (revision >= CONN_PARAMS_REVISION) {
                     interval = (ushort)(interval / AD_INTERVAL_STEP);
                 }
-                byte[] config = new byte[3];
-                Array.Copy(Util.ushortToBytesLe(interval.Value), config, 2);
-                config[2] = timeout == null ? (byte) 0 : timeout.Value;
 
+                byte[] config = new byte[revision >= WHITELIST_REVISION ? 4 : 3];
+                Array.Copy(Util.ushortToBytesLe(interval.Value), config, 2);
+                config[2] = timeout == null ? (byte)0 : timeout.Value;
+                if (revision >= WHITELIST_REVISION) {
+                    config[3] = 0;
+                }
+                
                 bridge.sendCommand(SETTINGS, AD_INTERVAL, config);
             }
 

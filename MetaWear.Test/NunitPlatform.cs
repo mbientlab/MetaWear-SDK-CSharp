@@ -20,6 +20,7 @@ namespace MbientLab.MetaWear.Test {
         private Queue<byte[]> pendingResponses = new Queue<byte[]>();
         Timer timer;
 
+        List<byte[]> connectCommands = new List<byte[]>();
         List<byte[]> commands = new List<byte[]>();
         List<GattCharWriteType> writeTypes = new List<GattCharWriteType>();
 
@@ -75,12 +76,14 @@ namespace MbientLab.MetaWear.Test {
         }
         public async Task WriteCharacteristicAsync(Tuple<Guid, Guid> gattChar, GattCharWriteType writeType, byte[] value) {
             if (value[1] == 0x80) {
+                connectCommands.Add(value);
                 if (delayModuleDiscovery) {
                     pendingResponses.Enqueue(initResponse.moduleResponses[value[0]]);
                 } else {
                     charChangedHandler(initResponse.moduleResponses[value[0]]);
                 }
             } else if (value[0] == 0xb && value[1] == 0x84) {
+                connectCommands.Add(value);
                 await Task.Delay(20);
                 pendingResponses.Enqueue(new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 });
             } else {
@@ -118,6 +121,9 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        public byte[][] GetConnectCommands() {
+            return connectCommands.ToArray<byte[]>();
+        }
         public byte[][] GetCommands() {
             return commands.ToArray<byte[]>();
         }

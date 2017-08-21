@@ -16,21 +16,22 @@ namespace MbientLab.MetaWear.Win10 {
     /// </summary>
     public class Application {
         private class IO : ILibraryIO {
-            private ulong macAddr;
+            private string macAddr;
 
             public IO(ulong macAddr) {
-                this.macAddr = macAddr;
+                this.macAddr = macAddr.ToString("X");
             }
 
 #if WINDOWS_UWP
             public async Task<Stream> LocalLoadAsync(string key) {
-                StorageFolder folder;
-                try {
-                    folder = await ApplicationData.Current.LocalFolder.GetFolderAsync(cachePath);
-                } catch (FileNotFoundException) {
-                    folder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(cachePath);
-                }
-                return await folder.OpenStreamForReadAsync(string.Format("{0:X}_{1}.bin", macAddr, key));
+                StorageFolder root, folder;
+
+                root = await ((await ApplicationData.Current.LocalFolder.TryGetItemAsync(cachePath) != null) ?
+                    ApplicationData.Current.LocalFolder.GetFolderAsync(cachePath) :
+                    ApplicationData.Current.LocalFolder.CreateFolderAsync(cachePath));
+                folder = await (await root.TryGetItemAsync(macAddr) == null ? root.CreateFolderAsync(macAddr) : root.GetFolderAsync(macAddr));
+
+                return await folder.OpenStreamForReadAsync(string.Format("{0}.bin", key));
             }
 
             public void LogWarn(string tag, string message, Exception e) {
@@ -38,19 +39,20 @@ namespace MbientLab.MetaWear.Win10 {
             }
 
             public async Task LocalSaveAsync(string key, byte[] data) {
-                StorageFolder folder;
-                try {
-                    folder = await ApplicationData.Current.LocalFolder.GetFolderAsync(cachePath);
-                } catch (FileNotFoundException) {
-                    folder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(cachePath);
-                }
-                using (var stream = await folder.OpenStreamForWriteAsync(string.Format("{0:X}_{1}.bin", macAddr, key), CreationCollisionOption.ReplaceExisting)) {
+                StorageFolder root, folder;
+
+                root = await ((await ApplicationData.Current.LocalFolder.TryGetItemAsync(cachePath) != null) ?
+                    ApplicationData.Current.LocalFolder.GetFolderAsync(cachePath) :
+                    ApplicationData.Current.LocalFolder.CreateFolderAsync(cachePath));
+                folder = await (await root.TryGetItemAsync(macAddr) == null ? root.CreateFolderAsync(macAddr) : root.GetFolderAsync(macAddr));
+
+                using (var stream = await folder.OpenStreamForWriteAsync(string.Format("{0}.bin", key), CreationCollisionOption.ReplaceExisting)) {
                     stream.Write(data, 0, data.Length);
                 }
             }
 #else
             public async Task<Stream> LocalLoadAsync(string key) {
-                return await Task.FromResult(File.Open(Path.Combine(cachePath, macAddr.ToString("X"), key), FileMode.Open));
+                return await Task.FromResult(File.Open(Path.Combine(cachePath, macAddr, key), FileMode.Open));
             }
 
             public void LogWarn(string tag, string message, Exception e) {
@@ -58,7 +60,7 @@ namespace MbientLab.MetaWear.Win10 {
             }
 
             public Task LocalSaveAsync(string key, byte[] data) {
-                using (Stream outs = File.Open(Path.Combine(cachePath, macAddr.ToString("X"), key), FileMode.Create)) {
+                using (Stream outs = File.Open(Path.Combine(cachePath, macAddr, key), FileMode.Create)) {
                     outs.Write(data, 0, data.Length);
                 }
                 return Task.CompletedTask;
@@ -90,6 +92,36 @@ namespace MbientLab.MetaWear.Win10 {
             board = new MetaWearBoard(new BluetoothLeGatt(device), new IO(device.BluetoothAddress));
             btleDevices.Add(device.BluetoothAddress, board);
             return board;
+        }
+        /// <summary>
+        /// Removes the <see cref="IMetaWearBoard"/> object corresponding to the BluetoothLE device
+        /// </summary>
+        /// <param name="device">BluetoothLE device object corresponding to the target MetaWear board</param>
+        public static void RemoveMetaWearBoard(BluetoothLEDevice device) {
+            btleDevices.Remove(device.BluetoothAddress);
+        }
+        /// <summary>
+        /// Clears cached information specific to the BluetoothLE device
+        /// </summary>
+        /// <param name="device">BluetoothLE device to clear</param>
+        /// <returns>Null task</returns>
+        public static async Task ClearDeviceCacheAsync(BluetoothLEDevice device) {
+#if WINDOWS_UWP
+            var macAddr = device.BluetoothAddress.ToString("X");
+            var root = await((await ApplicationData.Current.LocalFolder.TryGetItemAsync(cachePath) != null) ?
+                ApplicationData.Current.LocalFolder.GetFolderAsync(cachePath) :
+                ApplicationData.Current.LocalFolder.CreateFolderAsync(cachePath));
+
+            if (await root.TryGetItemAsync(macAddr) != null) {
+                await (await root.GetFolderAsync(macAddr)).DeleteAsync();
+            }
+#else
+            var macAddr = device.BluetoothAddress.ToString("X");
+            var path = Path.Combine(cachePath, macAddr);
+
+            File.Delete(path);
+            await Task.CompletedTask;
+#endif
         }
     }
 }

@@ -51,6 +51,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AccelerometerBmi160Test.cs" />
     <Compile Include="AccelerometerTest.cs" />
     <Compile Include="AmbientLightLtr329Test.cs" />
     <Compile Include="BarometerBme280StandbyTest.cs" />

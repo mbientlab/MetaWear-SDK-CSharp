@@ -19,7 +19,7 @@ namespace MbientLab.MetaWear.Impl {
     /// Implmementation of the <see cref="IMetaWearBoard"/> interface by MbientLab
     /// </summary>
     public class MetaWearBoard : IMetaWearBoard {
-        internal const int COMMAND_LENGTH = 18;
+        internal const int COMMAND_LENGTH = 18, MAX_PACKET_LENGTH = COMMAND_LENGTH + 2;
         private static readonly Tuple<Guid, Guid> COMMAND_GATT_CHAR = new Tuple<Guid, Guid>(
             Constants.METAWEAR_GATT_SERVICE,
             new Guid("326A9001-85CB-9195-D9DD-464CFBBAE75A")
@@ -27,37 +27,40 @@ namespace MbientLab.MetaWear.Impl {
             Constants.METAWEAR_GATT_SERVICE,
             new Guid("326A9006-85CB-9195-D9DD-464CFBBAE75A")
         );
-        private static readonly Type[] MODULE_TYPES = new Type[] {
-            typeof(AccelerometerBma255),
-            typeof(AccelerometerBmi160),
-            typeof(AccelerometerBosch),
-            typeof(AccelerometerMma8452q),
-            typeof(AmbientLightLtr329),
-            typeof(BarometerBme280),
-            typeof(BarometerBmp280),
-            typeof(BarometerBosch),
-            typeof(ByteArrayDataType),
-            typeof(ColorTcs34725),
-            typeof(DataProcessor),
-            typeof(Debug),
-            typeof(Event),
-            typeof(Gpio),
-            typeof(GyroBmi160),
-            typeof(Haptic),
-            typeof(HumidityBme280),
-            typeof(IBeacon),
-            typeof(Led),
-            typeof(Logging),
-            typeof(Macro),
-            typeof(MagnetometerBmm150),
-            typeof(NeoPixel),
-            typeof(ProximityTsl2671),
-            typeof(SensorFusionBosch),
-            typeof(SerialPassthrough),
-            typeof(Settings),
-            typeof(Switch),
-            typeof(Temperature),
-            typeof(Timer)
+        private static DataContractSerializerSettings SERIALIZE_SETTINGS = new DataContractSerializerSettings {
+            PreserveObjectReferences = true,
+            KnownTypes = new Type[] {
+                typeof(AccelerometerBma255),
+                typeof(AccelerometerBmi160),
+                typeof(AccelerometerBosch),
+                typeof(AccelerometerMma8452q),
+                typeof(AmbientLightLtr329),
+                typeof(BarometerBme280),
+                typeof(BarometerBmp280),
+                typeof(BarometerBosch),
+                typeof(ByteArrayDataType),
+                typeof(ColorTcs34725),
+                typeof(DataProcessor),
+                typeof(Debug),
+                typeof(Event),
+                typeof(Gpio),
+                typeof(GyroBmi160),
+                typeof(Haptic),
+                typeof(HumidityBme280),
+                typeof(IBeacon),
+                typeof(Led),
+                typeof(Logging),
+                typeof(Macro),
+                typeof(MagnetometerBmm150),
+                typeof(NeoPixel),
+                typeof(ProximityTsl2671),
+                typeof(SensorFusionBosch),
+                typeof(SerialPassthrough),
+                typeof(Settings),
+                typeof(Switch),
+                typeof(Temperature),
+                typeof(Timer)
+            }
         };
 
         [DataContract]
@@ -354,7 +357,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             public void addRegisterResponseHandler(Tuple<byte, byte> key, Action<byte[]> handler) {
-                metawear.registerResponseHandlers.Add(key, handler);
+                metawear.registerResponseHandlers[key] = handler;
             }
 
             public Version getFirmware() {
@@ -499,15 +502,16 @@ namespace MbientLab.MetaWear.Impl {
 
         public async Task SerializeAsync() {
             using (MemoryStream outs = new MemoryStream()) {
-                new DataContractSerializer(typeof(Persistent), MODULE_TYPES).WriteObject(outs, persistent);
+                new DataContractSerializer(typeof(Persistent), SERIALIZE_SETTINGS).WriteObject(outs, persistent);
                 await io.LocalSaveAsync(BOARD_STATE, outs.ToArray());
             }
         }
 
         public async Task DeserializeAsync() {
             using (Stream ins = await io.LocalLoadAsync(BOARD_STATE)) {
-                persistent = new DataContractSerializer(typeof(Persistent), MODULE_TYPES).ReadObject(ins) as Persistent;
+                persistent = new DataContractSerializer(typeof(Persistent), SERIALIZE_SETTINGS).ReadObject(ins) as Persistent;
 
+                registerResponseHandlers.Clear();
                 dataIdHeaders.Clear();
                 dataHandlers.Clear();
 
@@ -602,8 +606,8 @@ namespace MbientLab.MetaWear.Impl {
                 persistent.attributes.modelNumber = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.MODEL_NUMBER));
             }
 
-            var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
             try {
+                var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
                 await gatt.EnableNotificationsAsync(NOTIFY_CHAR, value => {
                     Tuple<byte, byte> header = Tuple.Create(value[0], value[1]);
                     Tuple<byte, byte, byte> dataHandlerKey = Tuple.Create(value[0], value[1], dataIdHeaders.Contains(header) ? value[2] : DataTypeBase.NO_ID);
@@ -628,7 +632,7 @@ namespace MbientLab.MetaWear.Impl {
                 }
 
                 if (persistent.modules.TryGetValue(typeof(ILogging).FullName, out var logging)) {
-                    await ((Logging)logging).QueryTimeAsync();
+                    await (logging as Logging).QueryTimeAsync();
                 }
 
                 using (MemoryStream outs = new MemoryStream()) {
@@ -659,6 +663,10 @@ namespace MbientLab.MetaWear.Impl {
                 persistent.activeRoutes.Clear();
                 persistent.modules.Clear();
                 persistent.attributes.moduleInfo.Clear();
+
+                registerResponseHandlers.Clear();
+                dataIdHeaders.Clear();
+                dataHandlers.Clear();
             }
             foreach (Module module in Enum.GetValues(typeof(Module))) {
                 if (refresh || !persistent.attributes.moduleInfo.ContainsKey(module)) {
@@ -982,7 +990,7 @@ namespace MbientLab.MetaWear.Impl {
                     persistent.id++;
 
                     top.Item3.SetResult(newRoute);
-                } catch (Exception e) when (e is IllegalRouteOperationException || e is TimeoutException) {
+                } catch (Exception e) {
                     pendingRoutes.Dequeue();
                     top.Item3.SetException(e);
                 } finally {

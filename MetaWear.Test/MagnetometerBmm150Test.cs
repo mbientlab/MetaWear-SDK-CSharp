@@ -2,13 +2,23 @@
 using MbientLab.MetaWear.Sensor;
 using MbientLab.MetaWear.Sensor.MagnetometerBmm150;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
-    public class MagnetometerBmm150TestDataClass {
+    internal class MagnetometerBmm150TestFixtureData {
+        public static IEnumerable Params {
+            get {
+                yield return new TestFixtureData((byte) 1);
+                yield return new TestFixtureData((byte) 2);
+            }
+        }
+    }
+
+    internal class MagnetometerBmm150TestDataClass {
         public static IEnumerable PresetTestCases {
             get {
                 List<TestCaseData> testCases = new List<TestCaseData>();
@@ -20,11 +30,15 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
-    [TestFixture]
+    [TestFixtureSource(typeof(MagnetometerBmm150TestFixtureData), "Params")]
     class MagnetometerBmm150Test : UnitTestBase {
         private IMagnetometerBmm150 magnetometer;
+        private byte revision;
 
-        public MagnetometerBmm150Test() : base(typeof(IMagnetometerBmm150)) { }
+        public MagnetometerBmm150Test(byte revision) : base(typeof(IMagnetometerBmm150)) {
+            this.revision = revision;
+            platform.initResponse.moduleResponses[0x15] = new byte[] { 0x15, 0x80, 0x00, revision };
+        }
 
         [SetUp]
         public override void SetUp() {
@@ -39,7 +53,11 @@ namespace MbientLab.MetaWear.Test {
 
         [Test, TestCaseSource(typeof(MagnetometerBmm150TestDataClass), "PresetTestCases")]
         public void Configure(Preset preset) {
-            byte[][] expected = {
+            byte[][] expected = revision >= 2 ? new byte[][] {
+                new byte[] { 0x15, 0x01, 0x00 },
+                new byte[] { 0x15, 0x04, XY_BITMASK[(int)preset], Z_BITMASK[(int)preset] },
+                new byte[] { 0x15, 0x03, ODR_BITMASK[(int)preset] }
+            } : new byte[][] { 
                 new byte[] { 0x15, 0x04, XY_BITMASK[(int) preset], Z_BITMASK[(int) preset] },
                 new byte[] { 0x15, 0x03, ODR_BITMASK[(int) preset] }
             };
@@ -126,6 +144,14 @@ namespace MbientLab.MetaWear.Test {
 
             platform.sendMockResponse(response);
             Assert.That(actual, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void Suspend() {
+            magnetometer.Suspend();
+
+            var expected = revision >= 2 ? Is.EqualTo(new byte[][] { new byte[] { 0x15, 0x01, 0x02 } }) as Constraint : Is.Empty as Constraint;
+            Assert.That(platform.GetCommands(), expected);
         }
     }
 }

@@ -9,7 +9,7 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(Bmm150CartesianFloatData))]
     [DataContract]
     class MagnetometerBmm150 : ModuleImplBase, IMagnetometerBmm150 {
-        private const byte PACKED_MAG_REVISION = 1;
+        private const byte PACKED_MAG_REVISION = 1, SUSPEND_REVISION = 2;
         private const byte POWER_MODE = 1,
                 DATA_INTERRUPT_ENABLE = 2, DATA_RATE = 3, DATA_REPETITIONS = 4, MAG_DATA = 5,
                 PACKED_MAG_DATA = 0x09;
@@ -76,6 +76,9 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public void Configure(ushort xyReps = 9, ushort zReps = 15, OutputDataRate odr = OutputDataRate._10Hz) {
+            if (bridge.lookupModuleInfo(MAGNETOMETER).revision >= SUSPEND_REVISION) {
+                Stop();
+            }
             bridge.sendCommand(new byte[] { (byte) MAGNETOMETER, DATA_REPETITIONS, (byte)((xyReps - 1) / 2), (byte)(zReps - 1) });
             bridge.sendCommand(new byte[] { (byte) MAGNETOMETER, DATA_RATE, (byte)odr });
         }
@@ -103,6 +106,12 @@ namespace MbientLab.MetaWear.Impl {
 
         public void Stop() {
             bridge.sendCommand(new byte[] { (byte) MAGNETOMETER, POWER_MODE, 0 });
+        }
+
+        public void Suspend() {
+            if (bridge.lookupModuleInfo(MAGNETOMETER).revision >= SUSPEND_REVISION) {
+                bridge.sendCommand(new byte[] { (byte)MAGNETOMETER, POWER_MODE, 2 });
+            }
         }
     }
 }

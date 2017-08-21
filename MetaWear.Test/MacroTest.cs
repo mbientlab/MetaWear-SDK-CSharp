@@ -16,6 +16,7 @@ namespace MbientLab.MetaWear.Test {
 
         [SetUp]
         public override void SetUp() {
+            platform.initResponse.moduleResponses[0x9][3] = 0x1;
             base.SetUp();
 
             macro = metawear.GetModule<IMacro>();

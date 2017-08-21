@@ -73,5 +73,10 @@ namespace MbientLab.MetaWear.Sensor {
         /// Switch the magnetometer into sleep mode
         /// </summary>
         void Stop();
+        /// <summary>
+        /// Switch the magnetometer into suspend mode.  When placed in suspend mode, sensor settings are reset 
+        /// and will need to be reconfigured.
+        /// </summary>
+        void Suspend();
     }
 }

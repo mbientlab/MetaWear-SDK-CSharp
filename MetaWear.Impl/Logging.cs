@@ -68,6 +68,19 @@ namespace MbientLab.MetaWear.Impl {
     }
 
     [DataContract]
+    class TimeReference {
+        public byte resetUid;
+        public long tick;
+        public DateTime timestamp;
+
+        public TimeReference(byte resetUid, long tick, DateTime timestamp) {
+            this.timestamp = timestamp;
+            this.tick = tick;
+            this.resetUid = resetUid;
+        }
+    }
+
+    [DataContract]
     class Logging : ModuleImplBase, ILogging {
         private const double TICK_TIME_STEP = (48.0 / 32768.0) * 1000.0;
         private const byte LOG_ENTRY_SIZE = 4, REVISION_EXTENDED_LOGGING = 2;
@@ -81,8 +94,8 @@ namespace MbientLab.MetaWear.Impl {
             CIRCULAR_BUFFER = 0xb,
             READOUT_PAGE_COMPLETED = 0xd, READOUT_PAGE_CONFIRM = 0xe;
 
-        [DataMember] private Tuple<byte, uint, DateTime> latestReference;
-        [DataMember] private Dictionary<byte, Tuple<byte, uint, DateTime>> logReferenceTicks= new Dictionary<byte, Tuple<byte, uint, DateTime>>();
+        [DataMember] private TimeReference latestReference;
+        [DataMember] private Dictionary<byte, TimeReference> logReferenceTicks= new Dictionary<byte, TimeReference>();
         [DataMember] private Dictionary<byte, LoggedDataConsumer> dataLoggers= new Dictionary<byte, LoggedDataConsumer>();
         [DataMember] private Dictionary<byte, uint> lastTimestamp= new Dictionary<byte, uint>();
 
@@ -97,6 +110,9 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public override void disconnected() {
+            foreach (var e in lastTimestamp) {
+                rollbackTimestamps[e.Key] = e.Value;
+            }
             if (downloadTask != null) {
                 downloadTask.SetCanceled();
                 downloadTask = null;
@@ -105,16 +121,11 @@ namespace MbientLab.MetaWear.Impl {
 
         private void processLogData(byte[] logEntry, int offset) {
             byte logId = (byte)(logEntry[0 + offset] & 0x1f), resetUid = (byte)((logEntry[0 + offset] & ~0x1f) >> 5);
-            if (!logReferenceTicks.TryGetValue(resetUid, out var reference)) {
-                reference = latestReference;
-            }
 
             uint tick = BitConverter.ToUInt32(logEntry, 1 + offset);
-            DateTime timestamp = reference.Item3.AddMilliseconds((uint) ((tick - reference.Item2) * TICK_TIME_STEP));
-
-            if (!lastTimestamp.TryGetValue(logId, out var cachedTick) || cachedTick < tick) { 
-                lastTimestamp[logId] = tick;
-
+            if (!rollbackTimestamps.TryGetValue(resetUid, out uint rollback) || rollback < tick) {
+                var timestamp = computeTimestamp(resetUid, tick);
+                
                 byte[] logData = new byte[LOG_ENTRY_SIZE];
                 Array.Copy(logEntry, 5 + offset, logData, 0, LOG_ENTRY_SIZE);
 
@@ -127,6 +138,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected override void init() {
+            rollbackTimestamps = new Dictionary<byte, uint>();
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, TRIGGER), response => {
                 nReqLogIds--;
                 nextLogger.addId(response[2]);
@@ -149,7 +161,7 @@ namespace MbientLab.MetaWear.Impl {
                 uint nEntriesLeft = BitConverter.ToUInt32(response, 2);
 
                 if (nEntriesLeft == 0) {
-                    lastTimestamp.Clear();
+                    rollbackTimestamps.Clear();
                     downloadTask.SetResult(true);
                     downloadTask = null;
                 } else {
@@ -157,21 +169,29 @@ namespace MbientLab.MetaWear.Impl {
                 }
             });
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(TIME)), response => {
-                uint tick = BitConverter.ToUInt32(response, 2);
-                byte resetUid = (response.Length > 6) ? response[6] : (byte) 0xff;
+                // if in the middle of a log download, don't update the reference
+                // rollbackTimestamps var is cleared after readout progress hits 0
+                if (rollbackTimestamps.Count == 0) {
+                    uint tick = BitConverter.ToUInt32(response, 2);
+                    byte resetUid = (response.Length > 6) ? response[6] : (byte)0xff;
 
-                latestReference = Tuple.Create(resetUid, tick, DateTime.Now);
-                if (resetUid != 0xff) {
-                    logReferenceTicks[resetUid] = latestReference;
+                    latestReference = new TimeReference(resetUid, tick, DateTime.Now);
+                    if (resetUid != 0xff) {
+                        logReferenceTicks[resetUid] = latestReference;
+                    }
                 }
 
-                queryTimeTask.SetResult(true);
+                if (queryTimeTask != null) {
+                    queryTimeTask.SetResult(true);
+                    queryTimeTask = null;
+                }
             });
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(LENGTH)), response => {
                 int payloadSize = response.Length - 2;
                 nLogEntries = BitConverter.ToUInt32(response, 2);
 
                 if (nLogEntries == 0) {
+                    rollbackTimestamps.Clear();
                     downloadTask.SetResult(true);
                     downloadTask = null;
                 } else {
@@ -201,6 +221,7 @@ namespace MbientLab.MetaWear.Impl {
         private TaskCompletionSource<bool> downloadTask;
         private Action<uint, uint> updateHandler;
         private Action<LogDownloadError, byte, DateTime, byte[]> errorHandler;
+        private Dictionary<byte, uint> rollbackTimestamps;
 
         public Task DownloadAsync(uint nUpdates, Action<uint, uint> updateHandler, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
             if (downloadTask != null) {
@@ -300,6 +321,25 @@ namespace MbientLab.MetaWear.Impl {
             } else {
                 createLoggerTask.SetResult(successfulLoggers);
             }
+        }
+
+        internal DateTime computeTimestamp(byte resetUid, uint tick) {
+            if (!logReferenceTicks.TryGetValue(resetUid, out var reference)) {
+                reference = latestReference;
+            }
+
+            if (lastTimestamp.TryGetValue(resetUid, out uint previous) && previous > tick) {
+                var offset = (tick - lastTimestamp[resetUid] + (lastTimestamp[resetUid] - reference.tick)) * TICK_TIME_STEP;
+                reference.timestamp = reference.timestamp.AddMilliseconds((long) (offset));
+                reference.tick = tick;
+                
+                if (rollbackTimestamps.ContainsKey(resetUid)) {
+                    rollbackTimestamps[resetUid] = tick;
+                }
+            }
+
+            lastTimestamp[resetUid] = tick;
+            return reference.timestamp.AddMilliseconds((long)((tick - reference.tick) * TICK_TIME_STEP));
         }
     }
 }

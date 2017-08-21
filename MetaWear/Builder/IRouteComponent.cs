@@ -1,5 +1,4 @@
 ﻿using System;
-using MbientLab.MetaWear.Core;
 
 namespace MbientLab.MetaWear.Builder {
     /// <summary>
@@ -189,29 +188,47 @@ namespace MbientLab.MetaWear.Builder {
         /// <returns>Component representing the accumulated sum</returns>
         IRouteComponent Accumulate();
         /// <summary>
-        /// Computes a moving average over the previous N samples.  This component will not output data until the first average i.e.
-        /// until N samples have been received.
+        /// Counts the number of data samples that have passed through this component and outputs the current count
         /// </summary>
-        /// <param name="samples">Number of samples to average over</param>
-        /// <returns>Component representing the running averager</returns>
-        IRouteComponent Average(byte samples);
+        /// <returns>Component representing the counter output</returns>
+        IRouteComponent Count();
+
         /// <summary>
         /// Stores the input data in memory which can be extracted by reading the buffer state.  As this buffer does not have an output, 
         /// the route cannot continue so it must either end or control is passed back to the most recent split or multicast
         /// </summary>
         /// <returns>Object for continuing the route</returns>
         IRouteBranchEnd Buffer();
-        /// <summary>
-        /// Counts the number of data samples that have passed through this component and outputs the current count
-        /// </summary>
-        /// <returns>Component representing the counter output</returns>
-        IRouteComponent Count();
+
         /// <summary>
         /// Stops data from passing until at least N samples have been collected.
         /// </summary>
         /// <param name="samples">Number of samples to collect</param>
         /// <returns>Component representing the delayed output</returns>
         IRouteComponent Delay(byte samples);
+
+        /// <summary>
+        /// Computes a moving average over the previous N samples.  This component will not output data until the first average i.e.
+        /// until N samples have been received.
+        /// </summary>
+        /// <param name="samples">Number of samples to average over</param>
+        /// <returns>Component representing the running averager</returns>
+        [Obsolete("Deprecated in v0.2, use LowPass component instead")]
+        IRouteComponent Average(byte samples);
+        /// <summary>
+        /// Applies a high pass filter over the input data, available on firmware v1.3.4 and later.
+        /// </summary>
+        /// <param name="samples">Number of previous data samples to compare against</param>
+        /// <returns>Component representing the high pass output</returns>
+        IRouteComponent HighPass(byte samples);
+        /// <summary>
+        /// Applies a low pass filter over the input data, available on firmware v1.3.4 and later.  
+        /// <para>This componenet replaces the <see cref="Average(byte)"/> component.</para>
+        /// </summary>
+        /// <param name="samples">Number of previous data samples to compare against</param>
+        /// <returns>Component representing the low pass output</returns>
+        IRouteComponent LowPass(byte samples);
+
         /// <summary>
         /// Remove data from the route that does not satisfy the comparison
         /// </summary>
@@ -247,6 +264,7 @@ namespace MbientLab.MetaWear.Builder {
         /// <param name="names">Names identifying which sensor or processor data to use as the reference value when new values are produced</param>
         /// <returns>Component representing the filter output</returns>
         IRouteComponent Filter(Comparison op, ComparisonOutput output, params string[] names);
+
         /// <summary>
         /// Scans the input data for a pulse.  When one is detected, output a summary of the scanned data
         /// </summary>
@@ -278,6 +296,7 @@ namespace MbientLab.MetaWear.Builder {
         /// <param name="distance"></param>
         /// <returns>Component representing the differential filter output</returns>
         IRouteComponent Find(Differential differential, float distance);
+
         /// <summary>
         /// Only allow data through under certain user controlled conditions
         /// </summary>
@@ -291,6 +310,7 @@ namespace MbientLab.MetaWear.Builder {
         /// <param name="period">How often to allow data through, in milliseconds (ms)</param>
         /// <returns>Component representing the output of the limiter</returns>
         IRouteComponent Limit(uint period);
+
         /// <summary>
         /// Apply a 1 input function to all of the input data
         /// </summary>
@@ -311,5 +331,17 @@ namespace MbientLab.MetaWear.Builder {
         /// <param name="names">Names identifying which producer to feed into the mapper</param>
         /// <returns>Component representing the mapper output</returns>
         IRouteComponent Map(Function2 fn, params string[] names);
+
+        /// <summary>
+        /// Add additional information to the payload to reconstruct timestamps from streamed data
+        /// </summary>
+        /// <returns>Component representing the accounter output</returns>
+        IRouteComponent Account();
+        /// <summary>
+        /// Packs multiple input values into 1 BTLE packet.  Used to reduce the number of packets broadcasted over the link.
+        /// </summary>
+        /// <param name="count">Number of input values to pack</param>
+        /// <returns>Component representing the accounter output</returns>
+        IRouteComponent Pack(byte count);
     }
 }
