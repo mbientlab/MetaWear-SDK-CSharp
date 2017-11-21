@@ -52,7 +52,7 @@ namespace MbientLab.MetaWear.Win10 {
             }
 #else
             public async Task<Stream> LocalLoadAsync(string key) {
-                return await Task.FromResult(File.Open(Path.Combine(cachePath, macAddr, key), FileMode.Open));
+                return await Task.FromResult(File.Open(Path.Combine(Directory.GetCurrentDirectory(), cachePath, macAddr, key), FileMode.Open));
             }
 
             public void LogWarn(string tag, string message, Exception e) {
@@ -60,7 +60,11 @@ namespace MbientLab.MetaWear.Win10 {
             }
 
             public Task LocalSaveAsync(string key, byte[] data) {
-                using (Stream outs = File.Open(Path.Combine(cachePath, macAddr, key), FileMode.Create)) {
+                var root = Path.Combine(Directory.GetCurrentDirectory(), cachePath, macAddr);
+                if (!Directory.Exists(root)) {
+                    Directory.CreateDirectory(root);
+                }
+                using (Stream outs = File.Open(Path.Combine(root, key), FileMode.Create)) {
                     outs.Write(data, 0, data.Length);
                 }
                 return Task.CompletedTask;

@@ -30,8 +30,8 @@ namespace MbientLab.MetaWear.Test {
         public AmbientLightLtr329Test() : base(typeof(IAmbientLightLtr329)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             als = metawear.GetModule<IAmbientLightLtr329>();
         }

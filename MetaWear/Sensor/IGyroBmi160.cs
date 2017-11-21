@@ -1,4 +1,5 @@
 ﻿using MbientLab.MetaWear.Sensor.GyroBmi160;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Sensor {
     namespace GyroBmi160 {
@@ -54,5 +55,11 @@ namespace MbientLab.MetaWear.Sensor {
         /// Switch the gyro into standby mode
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Pulls the current gyro output data rate and data range from the sensor
+        /// </summary>
+        /// <returns>Task that is completed when the settings are received</returns>
+        Task PullConfigAsync();
     }
 }

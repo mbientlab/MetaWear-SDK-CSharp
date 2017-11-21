@@ -9,20 +9,20 @@ namespace MbientLab.MetaWear.Core {
         /// Issues a firmware reset command to the board.  
         /// <para>This task will be immediately cancelled if called within the context of a reaction</para>
         /// </summary>
-        /// <returns>True when connection is lost.</returns>
-        Task<bool> ResetAsync();
+        /// <returns>Null when connection is lost</returns>
+        Task ResetAsync();
         /// <summary>
         /// Commands the board to terminate the BLE link.
         /// <para>This task will be immediately cancelled if called within the context of a reaction</para>
         /// </summary>
-        /// <returns>True when the connection is lost</returns>
-        Task<bool> DisconnectAsync();
+        /// <returns>Null when the connection is lost</returns>
+        Task DisconnectAsync();
         /// <summary>
         /// Restarts the board in MetaBoot mode which enables firmware updates.
         /// <para>This task will be immediately cancelled if called within the context of a reaction</para>
         /// </summary>
-        /// <returns>True when the connection is lost</returns>
-        Task<bool> JumpToBootloaderAsync();
+        /// <returns>Null when the connection is lost</returns>
+        Task JumpToBootloaderAsync();
         /// <summary>
         /// Commands the board to reset after performing garbage collection.  Use this function in lieu of
         /// <see cref="ResetAsync"/> to reset the board after erasing macros or log data.

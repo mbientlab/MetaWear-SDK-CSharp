@@ -6,10 +6,39 @@ using MbientLab.MetaWear.Core.SensorFusionBosch;
 using MbientLab.MetaWear.Sensor;
 using MbientLab.MetaWear.Data;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
+    [KnownType(typeof(QuaternionDataType))]
+    [KnownType(typeof(EulerAnglesDataType))]
+    [KnownType(typeof(FusedAccelerationDataType))]
+    [KnownType(typeof(CorrectedAccelerationDataType))]
+    [KnownType(typeof(CorrectedAngularVelocityDataType))]
+    [KnownType(typeof(CorrectedBFieldDataType))]
     [DataContract]
     class SensorFusionBosch : ModuleImplBase, ISensorFusionBosch {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (dataType.eventConfig[1]) {
+                case CORRECTED_ACC:
+                    return "corrected-acceleration";
+                case CORRECTED_ROT:
+                    return "corrected-angular-velocity";
+                case CORRECTED_MAG:
+                    return "corrected-magnetic-field";
+                case QUATERNION:
+                    return "quaternion";
+                case EULER_ANGLES:
+                    return "euler-angles";
+                case GRAVITY_VECTOR:
+                    return "gravity";
+                case LINEAR_ACC:
+                    return "linear-acceleration";
+                default:
+                    return null;
+            }
+        }
+
         private const byte ENABLE = 1, MODE = 2, OUTPUT_ENABLE = 3,
             CORRECTED_ACC = 4, CORRECTED_ROT = 5, CORRECTED_MAG = 6,
             QUATERNION = 7, EULER_ANGLES = 8, GRAVITY_VECTOR = 9, LINEAR_ACC = 0xa;
@@ -231,6 +260,9 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataMember] private Mode mode = Mode.Ndof;
         [DataMember] private byte dataEnableMask;
+        [DataMember] private DataTypeBase corrAccType, corrAngVelType, corrBFieldType, quaternionType, eulerAnglesType, gravityType, linAccType;
+
+        private TimedTask<byte[]> readConfigTask;
 
         private IAsyncDataProducer correctedAcc = null, correctedAngularVel = null, correctedMag = null, 
             quaternion = null, eulerAngles = null, 
@@ -239,69 +271,85 @@ namespace MbientLab.MetaWear.Impl {
         public IAsyncDataProducer CorrectedAcceleration {
             get {
                 if (correctedAcc == null) {
-                    correctedAcc = new SensorFusionAsyncDataProducer(new CorrectedAccelerationDataType(), 0x1, bridge);
+                    correctedAcc = new SensorFusionAsyncDataProducer(corrAccType, 0x1, bridge);
                 }
                 return correctedAcc;
             }
         }
-
         public IAsyncDataProducer CorrectedAngularVelocity {
             get {
                 if (correctedAngularVel == null) {
-                    correctedAngularVel = new SensorFusionAsyncDataProducer(new CorrectedAngularVelocityDataType(), 0x2, bridge);
+                    correctedAngularVel = new SensorFusionAsyncDataProducer(corrAngVelType, 0x2, bridge);
                 }
                 return correctedAngularVel;
             }
         }
-
         public IAsyncDataProducer CorrectedMagneticField {
             get {
                 if (correctedMag == null) {
-                    correctedMag = new SensorFusionAsyncDataProducer(new CorrectedBFieldDataType(), 0x4, bridge);
+                    correctedMag = new SensorFusionAsyncDataProducer(corrBFieldType, 0x4, bridge);
                 }
                 return correctedMag;
             }
         }
-
         public IAsyncDataProducer Quaternion {
             get {
                 if (quaternion == null) {
-                    quaternion = new SensorFusionAsyncDataProducer(new QuaternionDataType(), 0x8, bridge);
+                    quaternion = new SensorFusionAsyncDataProducer(quaternionType, 0x8, bridge);
                 }
                 return quaternion;
             }
         }
-
         public IAsyncDataProducer EulerAngles {
             get {
                 if (eulerAngles == null) {
-                    eulerAngles = new SensorFusionAsyncDataProducer(new EulerAnglesDataType(), 0x10, bridge);
+                    eulerAngles = new SensorFusionAsyncDataProducer(eulerAnglesType, 0x10, bridge);
                 }
                 return eulerAngles;
             }
         }
-
         public IAsyncDataProducer Gravity {
             get {
                 if (gravity == null) {
-                    gravity = new SensorFusionAsyncDataProducer(new FusedAccelerationDataType(GRAVITY_VECTOR), 0x20, bridge);
+                    gravity = new SensorFusionAsyncDataProducer(gravityType, 0x20, bridge);
                 }
                 return gravity;
             }
         }
-
         public IAsyncDataProducer LinearAcceleration {
             get {
                 if (linearAcc == null) {
-                    linearAcc = new SensorFusionAsyncDataProducer(new FusedAccelerationDataType(LINEAR_ACC), 0x40, bridge);
+                    linearAcc = new SensorFusionAsyncDataProducer(linAccType, 0x40, bridge);
                 }
                 return linearAcc;
             }
         }
 
         public SensorFusionBosch(IModuleBoardBridge bridge) : base(bridge) {
+            corrAccType = new CorrectedAccelerationDataType();
+            corrAngVelType = new CorrectedAngularVelocityDataType();
+            corrBFieldType = new CorrectedBFieldDataType();
+            quaternionType = new QuaternionDataType();
+            eulerAnglesType = new EulerAnglesDataType();
+            gravityType = new FusedAccelerationDataType(GRAVITY_VECTOR);
+            linAccType = new FusedAccelerationDataType(LINEAR_ACC);
         }
-        
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(corrAccType);
+            collection.Add(corrAngVelType);
+            collection.Add(corrBFieldType);
+            collection.Add(quaternionType);
+            collection.Add(eulerAnglesType);
+            collection.Add(gravityType);
+            collection.Add(linAccType);
+        }
+
+        protected override void init() {
+            readConfigTask = new TimedTask<byte[]>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(MODE)), response => readConfigTask.SetResult(response));
+        }
+
         public void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps) {
             bridge.sendCommand(new byte[] {(byte) SENSOR_FUSION, MODE, (byte) ((byte) mode + 1),(byte) ((byte) ar | (((byte) gr + 1) << 4)) });
 
@@ -405,6 +453,12 @@ namespace MbientLab.MetaWear.Impl {
                     magnetometer.MagneticField.Stop();
                     break;
             }
+        }
+
+        public async Task PullConfigAsync() {
+            var response = await readConfigTask.Execute("Did not receive sensor fusion config within {0}ms", bridge.TimeForResponse, 
+                () => bridge.sendCommand(new byte[] { (byte)SENSOR_FUSION, Util.setRead(MODE) }));
+            mode = (Mode)response[2];
         }
     }
 }

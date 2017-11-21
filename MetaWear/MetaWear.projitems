@@ -26,8 +26,12 @@
     <Compile Include="$(MSBuildThisFileDirectory)Data\FloatVector.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Data\MagneticField.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Data\Quaternion.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Data\SensorOrientation.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Data\Sign.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Data\TapType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DeviceInformation.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IActiveDataProducer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)IAnonymousRoute.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IData.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IDataProducer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IDataToken.cs" />

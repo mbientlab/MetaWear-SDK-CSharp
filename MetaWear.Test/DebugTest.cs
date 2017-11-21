@@ -14,8 +14,8 @@ namespace MbientLab.MetaWear.Test {
         public DebugTest() : base(typeof(IDebug)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             debug = metawear.GetModule<IDebug>();
         }

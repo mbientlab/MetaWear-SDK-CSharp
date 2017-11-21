@@ -1,6 +1,7 @@
 ﻿using MbientLab.MetaWear.Core;
 using NUnit.Framework;
 using System;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     [TestFixture]
@@ -12,8 +13,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             settings = metawear.GetModule<ISettings>();
         }
@@ -28,9 +29,9 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void DisconnectEvent() {
-            Assert.Throws<InvalidOperationException>(() => {
+            Assert.ThrowsAsync<InvalidOperationException>(async () => {
                 try {
-                    settings.OnDisconnectAsync(() => { }).Wait();
+                    await settings.OnDisconnectAsync(() => { });
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }

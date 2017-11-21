@@ -4,7 +4,6 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using MbientLab.MetaWear.Peripheral.IBeacon;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Runtime.Serialization;
 
 namespace MbientLab.MetaWear.Impl {
@@ -13,53 +12,19 @@ namespace MbientLab.MetaWear.Impl {
         private const byte ENABLE = 0x1, AD_UUID = 0x2, MAJOR = 0x3, MINOR = 0x4,
                 RX = 0x5, TX = 0x6, PERIOD = 0x7;
 
-        private TaskCompletionSource<Configuration> readConfigTask;
-        private Guid adUuid;
-        private ushort major, minor, period;
-        private sbyte rxPower, txPower;
-        private Timer readConfigTimeout;
+        private TimedTask<byte[]> readConfigTask;
 
         public IBeacon(IModuleBoardBridge bridge) : base(bridge) {
         }
 
         protected override void init() {
-            bridge.addRegisterResponseHandler(Tuple.Create((byte) IBEACON, Util.setRead(AD_UUID)), response => {
-                Array.Reverse(response);
-                Array.Reverse(response, 0, 4);
-                Array.Reverse(response, 4, 2);
-                Array.Reverse(response, 6, 2);
-
-                adUuid = new Guid(response);
-
-                bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(MAJOR) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(MAJOR)), response => {
-                major = BitConverter.ToUInt16(response, 0);
-
-                bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(MINOR) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(MINOR)), response => {
-                minor = BitConverter.ToUInt16(response, 0);
-
-                bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(RX) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(RX)), response => {
-                rxPower = (sbyte) response[0];
-
-                bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(TX) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(TX)), response => {
-                txPower = (sbyte)response[0];
-
-                bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(PERIOD) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(PERIOD)), response => {
-                readConfigTimeout.Dispose();
-
-                period = BitConverter.ToUInt16(response, 0);
-                readConfigTask.SetResult(new Configuration(adUuid, major, minor, period, rxPower, txPower));
-                readConfigTask = null;
-            });
+            readConfigTask = new TimedTask<byte[]>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte) IBEACON, Util.setRead(AD_UUID)), response => readConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(MAJOR)), response => readConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(MINOR)), response => readConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(RX)), response => readConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(TX)), response => readConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)IBEACON, Util.setRead(PERIOD)), response => readConfigTask.SetResult(response));
         }
 
         public void Disable() {
@@ -70,12 +35,39 @@ namespace MbientLab.MetaWear.Impl {
             bridge.sendCommand(new byte[] { (byte)IBEACON, ENABLE, 0x1 });
         }
 
-        public Task<Configuration> ReadConfigAsync() {
-            readConfigTask = new TaskCompletionSource<Configuration>();
-            readConfigTimeout = new Timer(e => readConfigTask.SetException(new TimeoutException("Reading ibeacon config timedout")), null, 7 * 250, Timeout.Infinite);
-            bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(AD_UUID) });
+        public async Task<Configuration> ReadConfigAsync() {
+            var response = await readConfigTask.Execute("Did not receive ibeacon ad UUID within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(AD_UUID) }));
 
-            return readConfigTask.Task;
+            byte[] copy = new byte[response.Length - 2];
+            Array.Copy(response, 2, copy, 0, copy.Length);
+            Array.Reverse(copy);
+            Array.Reverse(copy, 0, 4);
+            Array.Reverse(copy, 4, 2);
+            Array.Reverse(copy, 6, 2);
+            var adUuid = new Guid(copy);
+
+            response = await readConfigTask.Execute("Did not receive ibeacon major ID within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(MAJOR) }));
+            var major = BitConverter.ToUInt16(response, 2);
+
+            response = await readConfigTask.Execute("Did not receive ibeacon minor ID within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(MINOR) }));
+            var minor = BitConverter.ToUInt16(response, 2);
+
+            response = await readConfigTask.Execute("Did not receive ibeacon rx power within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(RX) }));
+            var rxPower = (sbyte)response[2];
+
+            response = await readConfigTask.Execute("Did not receive ibeacon tx power within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(TX) }));
+            var txPower = (sbyte)response[2];
+
+            response = await readConfigTask.Execute("Did not receive ibeacon ad period within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)IBEACON, Util.setRead(PERIOD) }));
+            var period = BitConverter.ToUInt16(response, 2);
+
+            return new Configuration(adUuid, major, minor, period, rxPower, txPower);
         }
 
         public void SetMajor(IDataToken major) {

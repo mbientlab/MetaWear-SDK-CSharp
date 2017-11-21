@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>MbientLab.MetaWear.DotNetStandard</AssemblyName>
+    <RootNamespace>MbientLab.MetaWear.DotNetStandard</RootNamespace>
+    <DelaySign>false</DelaySign>
+  </PropertyGroup>
+
+  <Import Project="..\MetaWear\MetaWear.projitems" Label="Shared" />
+
+  <Import Project="..\MetaWear.Impl\MetaWear.Impl.projitems" Label="Shared" />
+
+  <Import Project="..\MetaWear.Platform\MetaWear.Platform.projitems" Label="Shared" />
+
+</Project>

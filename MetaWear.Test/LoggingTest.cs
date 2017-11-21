@@ -13,8 +13,8 @@ namespace MbientLab.MetaWear.Test {
         public LoggingTest() : base(typeof(IAccelerometerBmi160), typeof(ILogging), typeof(IDebug)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             logging = metawear.GetModule<ILogging>();
         }
@@ -60,9 +60,9 @@ namespace MbientLab.MetaWear.Test {
         [Test]
         public void TimeoutHandler() {
             platform.maxLoggers = 0;
-            Assert.Throws<TimeoutException>(() => {
+            Assert.ThrowsAsync<TimeoutException>(async () => {
                 try {
-                    metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log()).Wait();
+                    await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log());
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }
@@ -140,11 +140,11 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void InterruptDownload() {
-            Assert.Throws<TaskCanceledException>(() => {
+            Assert.ThrowsAsync <TaskCanceledException>(async () => {
                 try {
                     var task = logging.DownloadAsync(20, (nEntries, totalEntries) => { });
                     new Timer(e => metawear.GetModule<IDebug>().DisconnectAsync(), null, 0, 5000L);
-                    task.Wait();
+                    await task;
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }

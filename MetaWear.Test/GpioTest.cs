@@ -13,8 +13,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             gpio = metawear.GetModule<IGpio>();
         }
@@ -26,9 +26,9 @@ namespace MbientLab.MetaWear.Test {
                 new byte[] {0x05, 0x87, 0x03, 0xff, 0xff, 0x00, 0xff}
             };
 
-            gpio.Pins[2].AbsoluteReference.AddRouteAsync(source => source.Stream()).Wait();
+            await gpio.Pins[2].AbsoluteReference.AddRouteAsync(source => source.Stream());
             gpio.Pins[2].AbsoluteReference.Read();
-            gpio.Pins[3].Adc.AddRouteAsync(source => source.Stream()).Wait();
+            await gpio.Pins[3].Adc.AddRouteAsync(source => source.Stream());
             gpio.Pins[3].Adc.Read();
 
             platform.fileSuffix = "gpio_analog";
@@ -51,12 +51,12 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void HandleAnalogData() {
+        public async Task HandleAnalogData() {
             float expectedAbsRef = 2.498f, actualAbsRef = 0;
             ushort expectedAdc = 882, actualAdc = 0;
 
-            gpio.Pins[1].AbsoluteReference.AddRouteAsync(source => source.Stream(data => actualAbsRef = data.Value<float>())).Wait();
-            gpio.Pins[1].Adc.AddRouteAsync(source => source.Stream(data => actualAdc = data.Value<ushort>())).Wait();
+            await gpio.Pins[1].AbsoluteReference.AddRouteAsync(source => source.Stream(data => actualAbsRef = data.Value<float>()));
+            await gpio.Pins[1].Adc.AddRouteAsync(source => source.Stream(data => actualAdc = data.Value<ushort>()));
 
             platform.sendMockResponse(new byte[] { 0x05, 0x87, 0x01, 0x72, 0x03 });
             platform.sendMockResponse(new byte[] { 0x05, 0x86, 0x01, 0xc2, 0x09 });
@@ -98,10 +98,10 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void ReadDigital() {
+        public async Task ReadDigital() {
             byte[][] expected = { new byte[] { 0x05, 0x88, 0x04 } };
 
-            gpio.Pins[4].Digital.AddRouteAsync(source => source.Stream()).Wait();
+            await gpio.Pins[4].Digital.AddRouteAsync(source => source.Stream());
             gpio.Pins[4].Digital.Read();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
@@ -117,11 +117,11 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void HandleDigitalData() {
+        public async Task HandleDigitalData() {
             byte[] expected = new byte[] { 1, 0 }, actual = new byte[2];
 
             int i = 0;
-            gpio.Pins[7].Digital.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>())).Wait();
+            await gpio.Pins[7].Digital.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>()));
 
             platform.sendMockResponse(new byte[] { 0x05, 0x88, 0x07, 0x01 });
             platform.sendMockResponse(new byte[] { 0x05, 0x88, 0x07, 0x00 });
@@ -144,11 +144,11 @@ namespace MbientLab.MetaWear.Test {
         }
         
         [Test]
-        public void HandleMonitorData() {
+        public async Task HandleMonitorData() {
             byte[] expected = new byte[] { 1, 0 }, actual = new byte[2];
 
             int i = 0;
-            gpio.Pins[0].Monitor.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>())).Wait();
+            await gpio.Pins[0].Monitor.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>()));
 
             platform.sendMockResponse(new byte[] { 0x05, 0x0a, 0x00, 0x01 });
             platform.sendMockResponse(new byte[] { 0x05, 0x0a, 0x00, 0x00 });
@@ -157,10 +157,10 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void SubscribeMonitor() {
+        public async Task SubscribeMonitor() {
             byte[][] expected = { new byte[] { 0x5, 0xa, 0x1 } };
 
-            gpio.Pins[0].Monitor.AddRouteAsync(source => source.Stream()).Wait();
+            await gpio.Pins[0].Monitor.AddRouteAsync(source => source.Stream());
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }

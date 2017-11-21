@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using MbientLab.MetaWear.Core.DataProcessor;
+using static MbientLab.MetaWear.Impl.DataProcessorConfig.MathConfig;
 
 namespace MbientLab.MetaWear.Impl {
     enum BranchType {
@@ -63,7 +64,7 @@ namespace MbientLab.MetaWear.Impl {
     }
 
     class RouteComponent : IRouteComponent {
-        private static readonly Version MULTI_CHANNEL_MATH= new Version("1.1.0"), MULTI_COMPARISON_MIN_FIRMWARE= new Version("1.2.3");
+        internal static readonly Version MULTI_CHANNEL_MATH= new Version("1.1.0"), MULTI_COMPARISON_MIN_FIRMWARE= new Version("1.2.3");
 
         internal class State {
             internal readonly List<Tuple<DataTypeBase, Action<IData>, bool>> subscribedProducers = new List<Tuple<DataTypeBase, Action<IData>, bool>>();
@@ -193,7 +194,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        private IRouteComponent applyAverager(byte samples, byte type, string name) {
+        private IRouteComponent applyAverager(byte samples, bool hpf, string name) {
             var hasHpf = state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision >= DataProcessor.HPF_REVISION;
 
             if (source.attributes.length() <= 0) {
@@ -203,26 +204,19 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException(string.Format("Cannot apply {0} filter to data longer than 4 bytes", name));
             }
 
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-
-            byte[] config = new byte[hasHpf ? 4 : 3];
-            config[0] = 0x3;
-            config[1] = (byte) (((source.attributes.length() - 1) & 0x3) | (((source.attributes.length() - 1) & 0x3) << 2) | ((hasHpf ? type : 0) << 5));
-            config[2] = samples;
-            if (hasHpf) {
-                config[3] = (byte) (source.attributes.sizes.Length - 1);
-            }
+            DataProcessorConfig config = new DataProcessorConfig.AverageConfig(source.attributes, samples, hpf, hasHpf);
+            var next = source.transform(config);
             
-            return postCreate(null, new AverageEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new AverageEditorInner(config.Build(), next.Item1, state.bridge));
         }
         public IRouteComponent HighPass(byte samples) {
             if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.HPF_REVISION) {
                 throw new IllegalRouteOperationException("High pass filter not available on this firmware version");
             }
-            return applyAverager(samples, 1, "high-pass");
+            return applyAverager(samples, true, "high-pass");
         }
         public IRouteComponent LowPass(byte samples) {
-            return applyAverager(samples, 0, "low-pass");
+            return applyAverager(samples, false, "low-pass");
         }
         public IRouteComponent Average(byte samples) {
             return LowPass(samples);
@@ -285,19 +279,14 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             byte output = 4;
-            DataAttributes attributes = new DataAttributes(new byte[] { output }, 1, 0, !counter && source.attributes.signed);
-            DataTypeBase processor = counter ?
-                    new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, attributes) :
-                    source.dataProcessorCopy(source, attributes);
-            byte[] config = new byte[] { 0x2, (byte)(((output - 1) & 0x3) | (((source.attributes.length() - 1) & 0x3) << 2) | (counter ? 0x10 : 0)) };
+            DataProcessorConfig config = new DataProcessorConfig.AccumulatorConfig(counter, output, source.attributes.length());
+            var next = source.transform(config);
+            
             EditorImplBase editor = counter ?
-                    new CounterEditorInner(config, processor, state.bridge) as EditorImplBase :
-                    new AccumulatorEditorInner(config, processor, state.bridge) as EditorImplBase;
+                new CounterEditorInner(config.Build(), next.Item1, state.bridge) as EditorImplBase :
+                new AccumulatorEditorInner(config.Build(), next.Item1, state.bridge) as EditorImplBase;
 
-            DataTypeBase processorState = counter ?
-                    new IntegralDataType(null, DATA_PROCESSOR, Util.setRead(DataProcessor.STATE), attributes) :
-                    processor.dataProcessorStateCopy(source, attributes);
-            return postCreate(processorState, editor);
+            return postCreate(next.Item2, editor);
         }
 
         public IRouteBranchEnd Buffer() {
@@ -407,15 +396,10 @@ namespace MbientLab.MetaWear.Impl {
 
             if (state.bridge.getFirmware().CompareTo(MULTI_COMPARISON_MIN_FIRMWARE) < 0) {
                 float scaledReference = references[0] * source.scale(state.bridge);
-
-                byte[] config = new byte[8];
-                config[0] = 0x6;
-                config[1] = (byte)(source.attributes.signed || references[0] < 0 ? 1 : 0);
-                config[2] = (byte)op;
-                config[3] = 0;
-                Array.Copy(Util.intToBytesLe((int)(scaledReference)), 0, config, 4, 4);
+                DataProcessorConfig config = new DataProcessorConfig.SingleValueComparisonConfig(source.attributes.signed, op, (int)scaledReference);
+                var next = source.transform(config);
                     
-                return postCreate(null, new SingleValueComparatorEditor(config, source.dataProcessorCopy(source, source.attributes.dataProcessorCopy()), state.bridge));
+                return postCreate(next.Item2, new SingleValueComparatorEditor(config.Build(), next.Item1, state.bridge));
             }
 
             bool anySigned = false;
@@ -424,24 +408,12 @@ namespace MbientLab.MetaWear.Impl {
             }
             bool signed = source.attributes.signed || anySigned;
 
-            DataTypeBase processor;
-            if (output == ComparisonOutput.PassFail || output == ComparisonOutput.Zone) {
-                DataAttributes newAttrs = new DataAttributes(new byte[] { 1 }, 1, 0, false);
-                processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, newAttrs);
-            } else {
-                processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-            }
-
             {
-                //scope conflict with 'config' variable name
-                byte[] config = new byte[2 + references.Length * source.attributes.length()];
-                config[0] = 0x6;
-                config[1] = (byte)((signed ? 1 : 0) | ((source.attributes.length() - 1) << 1) | ((int)op << 3) | ((int)output << 6));
+                DataProcessorConfig config = new DataProcessorConfig.MultiValueComparisonConfig(signed, source.attributes.length(), op, output,
+                    MultiValueComparatorEditor.fillReferences(source.scale(state.bridge), source, references));
+                var next = source.transform(config);
 
-                byte[] referenceValues = MultiValueComparatorEditor.fillReferences(source.scale(state.bridge), source, references);
-                Array.Copy(referenceValues, 0, config, 2, referenceValues.Length);
-
-                return postCreate(null, new MultiValueComparatorEditor(config, processor, state.bridge));
+                return postCreate(next.Item2, new MultiValueComparatorEditor(config.Build(), next.Item1, state.bridge));
             }
         }
         public IRouteComponent Filter(Comparison op, params string[] names) {
@@ -459,36 +431,22 @@ namespace MbientLab.MetaWear.Impl {
             return next;
         }
 
-        private enum MathOp {
-            Add,
-            Multiply,
-            Divide,          
-            Modulus,            
-            Exponent,
-            Sqrt,
-            LeftShift,
-            RightShift,
-            Subtract,
-            AbsValue,
-            Constant
-        }
-
         public IRouteComponent Map(Function1 fn) {
             switch (fn) {
                 case Function1.AbsValue:
-                    return applyMath(MathOp.AbsValue, 0);
+                    return applyMath(Operation.AbsValue, 0);
                 case Function1.Rms:
                     if (source is FloatVectorDataType) {
-                        return createCombiner(source, 0);
+                        return createCombiner(source, false);
                     }
                     throw new IllegalRouteOperationException("Cannot map data to RMS function");
                 case Function1.Rss:
                     if (source is FloatVectorDataType) {
-                        return createCombiner(source, 1);
+                        return createCombiner(source, true);
                     }
                     throw new IllegalRouteOperationException("Cannot map data to RSS function");
                 case Function1.Sqrt:
-                    return applyMath(MathOp.Sqrt, 0);
+                    return applyMath(Operation.Sqrt, 0);
             }
             throw new Exception("Just here so compiler doesn't complain");
         }
@@ -496,23 +454,23 @@ namespace MbientLab.MetaWear.Impl {
         public IRouteComponent Map(Function2 fn, float rhs) {
             switch (fn) {
                 case Function2.Add:
-                    return applyMath(MathOp.Add, rhs);
+                    return applyMath(Operation.Add, rhs);
                 case Function2.Multiply:
-                    return applyMath(MathOp.Multiply, rhs);
+                    return applyMath(Operation.Multiply, rhs);
                 case Function2.Divide:
-                    return applyMath(MathOp.Divide, rhs);
+                    return applyMath(Operation.Divide, rhs);
                 case Function2.Modulus:
-                    return applyMath(MathOp.Modulus, rhs);
+                    return applyMath(Operation.Modulus, rhs);
                 case Function2.Exponent:
-                    return applyMath(MathOp.Exponent, rhs);
+                    return applyMath(Operation.Exponent, rhs);
                 case Function2.LeftShift:
-                    return applyMath(MathOp.LeftShift, rhs);
+                    return applyMath(Operation.LeftShift, rhs);
                 case Function2.RightShift:
-                    return applyMath(MathOp.RightShift, rhs);
+                    return applyMath(Operation.RightShift, rhs);
                 case Function2.Subtract:
-                    return applyMath(MathOp.Subtract, rhs);
+                    return applyMath(Operation.Subtract, rhs);
                 case Function2.Constant:
-                    return applyMath(MathOp.Constant, rhs);
+                    return applyMath(Operation.Constant, rhs);
             }
             throw new Exception("Only here so the compiler won't get mad");
         }
@@ -534,14 +492,14 @@ namespace MbientLab.MetaWear.Impl {
             public void ModifyRhs(float rhs) {
                 float scaledRhs;
 
-                switch ((MathOp) (config[2] - 1)) {
-                    case MathOp.Add:
-                    case MathOp.Modulus:
-                    case MathOp.Subtract:
+                switch ((Operation) (config[2] - 1)) {
+                    case Operation.Add:
+                    case Operation.Modulus:
+                    case Operation.Subtract:
                         scaledRhs = rhs * source.scale(bridge);
                         break;
-                    case MathOp.Sqrt:
-                    case MathOp.AbsValue:
+                    case Operation.Sqrt:
+                    case Operation.AbsValue:
                         scaledRhs = 0;
                         break;
                     default:
@@ -555,7 +513,7 @@ namespace MbientLab.MetaWear.Impl {
                 bridge.sendCommand(DATA_PROCESSOR, DataProcessor.PARAMETER, source.eventConfig[2], config);
             }
         }
-        private RouteComponent applyMath(MathOp op, float rhs) {
+        private RouteComponent applyMath(Operation op, float rhs) {
             bool multiChnlMath = state.bridge.getFirmware().CompareTo(MULTI_CHANNEL_MATH) >= 0;
 
             if (!multiChnlMath && source.attributes.length() > 4) {
@@ -570,120 +528,40 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot apply math operations to sensor fusion data");
             }
 
-            DataTypeBase processor;
-
+            int scaledRhs;
             switch (op) {
-                case MathOp.Add: {
-                        DataAttributes newAttrs = source.attributes.dataProcessorCopySize(4);
-                        newAttrs.signed = source.attributes.signed || (!source.attributes.signed && rhs < 0);
-
-                        processor = source.dataProcessorCopy(source, newAttrs);
-                        break;
-                    }
-                case MathOp.Multiply: {
-                        DataAttributes newAttrs = source.attributes.dataProcessorCopySize((byte) (Math.Abs(rhs) < 1 ? source.attributes.sizes[0] : 4));
-                        newAttrs.signed = source.attributes.signed || (!source.attributes.signed && rhs < 0);
-
-                        processor = source.dataProcessorCopy(source, newAttrs);
-                        break;
-                    }
-                case MathOp.Divide: {
-                        DataAttributes newAttrs = source.attributes.dataProcessorCopySize((byte) (Math.Abs(rhs) < 1 ? 4 : source.attributes.sizes[0]));
-                        newAttrs.signed = source.attributes.signed || (!source.attributes.signed && rhs < 0);
-
-                        processor = source.dataProcessorCopy(source, newAttrs);
-                        break;
-                    }
-                case MathOp.Modulus: {
-                        processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-                        break;
-                    }
-                case MathOp.Exponent: {
-                        processor = new ByteArrayDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY,
-                                source.attributes.dataProcessorCopySize((byte)4));
-                        break;
-                    }
-                case MathOp.LeftShift: {
-                        processor = new ByteArrayDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY,
-                                source.attributes.dataProcessorCopySize((byte)Math.Min(source.attributes.sizes[0] + ((int) rhs / 8), 4)));
-                        break;
-                    }
-                case MathOp.RightShift: {
-                        processor = new ByteArrayDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY,
-                                source.attributes.dataProcessorCopySize((byte)Math.Max(source.attributes.sizes[0] - ((int) rhs / 8), 1)));
-                        break;
-                    }
-                case MathOp.Subtract: {
-                        processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopySigned(true));
-                        break;
-                    }
-                case MathOp.Sqrt: {
-                        processor = new ByteArrayDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, source.attributes.dataProcessorCopySigned(false));
-                        break;
-                    }
-                case MathOp.AbsValue: {
-                        DataAttributes copy = source.attributes.dataProcessorCopySigned(false);
-                        processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopySigned(false));
-                        break;
-                    }
-                case MathOp.Constant:
-                    DataAttributes attributes = new DataAttributes(new byte[] { 4 }, 1, 0, source.attributes.signed);
-                    processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, attributes);
+                case Operation.Add:
+                case Operation.Modulus:
+                case Operation.Subtract:
+                    scaledRhs = (int)(rhs * source.scale(state.bridge));
                     break;
-                default:
-                    processor = null;
-                    break;
-            }
-
-            float scaledRhs;
-            switch (op) {
-                case MathOp.Add:
-                case MathOp.Modulus:
-                case MathOp.Subtract:
-                    scaledRhs = rhs * source.scale(state.bridge);
-                    break;
-                case MathOp.Sqrt:
-                case MathOp.AbsValue:
+                case Operation.Sqrt:
+                case Operation.AbsValue:
                     scaledRhs = 0;
                     break;
                 default:
-                    scaledRhs = rhs;
+                    scaledRhs = (int) rhs;
                     break;
             }
 
-            byte[] config = new byte[multiChnlMath ? 8 : 7];
-            config[0] = 0x9;
-            config[1] = (byte)((processor.attributes.sizes[0] - 1) & 0x3 | ((source.attributes.sizes[0] - 1) << 2) | (source.attributes.signed ? 0x10 : 0));
-            config[2] = (byte) ((byte)op + 1);
-            Array.Copy(Util.intToBytesLe((int)scaledRhs), 0, config, 3, 4);
-            
-            if (multiChnlMath) {
-                config[7] = (byte)(source.attributes.sizes.Length - 1);
-            }
+            var config = new DataProcessorConfig.MathConfig(source.attributes, multiChnlMath, op, scaledRhs);
+            var next = source.transform(config);
+            config.output = next.Item1.attributes.sizes[0];
 
-            return postCreate(null, new MapEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new MapEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
-        private RouteComponent createCombiner(DataTypeBase source, byte mode) {
+        private RouteComponent createCombiner(DataTypeBase source, bool rss) {
             if (source.attributes.length() <= 0) {
-                throw new IllegalRouteOperationException(string.Format("Cannot apply \'{0}\' to null data", mode == 0 ? "rms" : "rss"));
+                throw new IllegalRouteOperationException(string.Format("Cannot apply \'{0}\' to null data", !rss ? "rms" : "rss"));
             } else if (source.eventConfig[0] == (byte) SENSOR_FUSION) {
-                throw new IllegalRouteOperationException(string.Format("Cannot apply \'{0}\' to sensor fusion data", mode == 0 ? "rms" : "rss"));
+                throw new IllegalRouteOperationException(string.Format("Cannot apply \'{0}\' to sensor fusion data", !rss ? "rms" : "rss"));
             }
 
-            byte signedMask = (byte)(source.attributes.signed ? 0x80 : 0x0);
-            // assume sizes array is filled with the same value
-            DataAttributes attributes = new DataAttributes(new byte[] { source.attributes.sizes[0] }, 1, 0, false);
-            DataTypeBase processor = source is FloatVectorDataType ?
-                new FloatDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, attributes) as DataTypeBase :
-                new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, attributes) as DataTypeBase;
-            byte[] config = new byte[] {
-                0x7,
-                (byte) (((processor.attributes.sizes[0] - 1) & 0x3) | (((source.attributes.sizes[0] - 1) & 0x3) << 2) | (((source.attributes.sizes.Length - 1) & 0x3) << 4) | signedMask),
-                mode
-            };
+            var config = new DataProcessorConfig.CombinerConfig(source.attributes, rss);
+            var next = source.transform(config);
 
-            return postCreate(null, new NullEditor(config, processor, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -707,13 +585,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot limit null data");
             }
 
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-            byte[] config = new byte[4] { 0x1, (byte) (((int)type) & 0x7), 0, 0 };
-            Array.Copy(Util.ushortToBytesLe(value), 0, config, 2, 2);
+            var config = new DataProcessorConfig.PassthroughConfig(type, value);
+            var next = source.transform(config);
 
-            DataTypeBase processorState = new IntegralDataType(DATA_PROCESSOR, Util.setRead(DataProcessor.STATE),
-                    new DataAttributes(new byte[] { 2 }, (byte)1, (byte)0, false));
-            return postCreate(processorState, new PassthroughEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new PassthroughEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         public IRouteComponent Delay(byte samples) {
@@ -724,10 +599,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot delay data longer than 4 bytes");
             }
 
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-            byte[] config = new byte[] { 0xa, (byte)((source.attributes.length() - 1) & 0x3), samples };
+            var config = new DataProcessorConfig.DelayConfig(source.attributes.length(), samples);
+            var next = source.transform(config);
 
-            return postCreate(null, new NullEditor(config, processor, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -755,35 +630,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot find pulses for sensor fusion data");
             }
 
-            DataTypeBase processor;
+            var config = new DataProcessorConfig.PulseConfig(source.attributes.length(), (int) (threshold * source.scale(state.bridge)), samples, pulse);
+            var next = source.transform(config);
 
-            switch (pulse) {
-                case Pulse.Width:
-                    processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { 2 }, 1, 0, false));
-                    break;
-                case Pulse.Area:
-                    processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopySize((byte)4));
-                    break;
-                case Pulse.Peak:
-                    processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-                    break;
-                case Pulse.OnDetect:
-                    processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { 1 }, 1, 0, false));
-                    break;
-                default:
-                    processor = null;
-                    break;
-            }
-
-            byte[] config = new byte[10];
-            config[0] = 0xb;
-            config[1] = (byte) (source.attributes.length() - 1);
-            config[2] = 0x0;
-            config[3] = (byte)pulse;
-            Array.Copy(Util.intToBytesLe((int) (threshold * source.scale(state.bridge))), 0, config, 4, 4);
-            Array.Copy(Util.ushortToBytesLe(samples), 0, config, 8, 2);
-
-            return postCreate(null, new PulseEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new PulseEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -815,26 +665,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot use threshold filter on sensor fusion data");
             }
 
-            DataTypeBase processor;
-            switch (threshold) {
-                case Threshold.Absolute:
-                    processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-                    break;
-                case Threshold.Binary:
-                    processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { 1 }, 1, 0, true));
-                    break;
-                default:
-                    processor = null;
-                    break;
-            }
+            var config = new DataProcessorConfig.ThresholdConfig(source.attributes, threshold, (int)(boundary * source.scale(state.bridge)), (short)(hysteresis * source.scale(state.bridge)));
+            var next = source.transform(config);
 
-            byte[] config = new byte[8];
-            config[0] = 0xd;
-            config[1] = (byte)((source.attributes.length() - 1) & 0x3 | (source.attributes.signed ? 0x4 : 0) | ((byte)threshold << 3));
-            Array.Copy(Util.intToBytesLe((int) (source.scale(state.bridge) * boundary)), 0, config, 2, 4);
-            Array.Copy(Util.shortToBytesLe((short)(source.scale(state.bridge) * hysteresis)), 0, config, 6, 2);
-
-            return postCreate(null, new ThresholdEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new ThresholdEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -860,28 +694,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot use differential filter on sensor fusion data");
             }
 
-            DataTypeBase processor;
-            switch (differential) {
-                case Differential.Absolute:
-                    processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
-                    break;
-                case Differential.Differential:
-                    processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopySigned(true));
-                    break;
-                case Differential.Binary:
-                    processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { 1 }, 1, 0, true));
-                    break;
-                default:
-                    processor = null;
-                    break;
-            }
+            var config = new DataProcessorConfig.DifferentialConfig(source.attributes, differential, (int)(distance * source.scale(state.bridge)));
+            var next = source.transform(config);
 
-            byte[] config = new byte[6];
-            config[0] = 0xc;
-            config[1] = (byte)(((source.attributes.length() - 1) & 0x3) | (source.attributes.signed ? 0x4 : 0) | ((byte) differential << 3));
-            Array.Copy(Util.intToBytesLe((int) (distance * source.scale(state.bridge))), 0, config, 2, 4);
-
-            return postCreate(null, new DifferentialEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new DifferentialEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -904,15 +720,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Cannot limit frequency of sensor fusion data");
             }
 
-            int outputMask = hasTimePassthrough ? 2 : 0;
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopy());
+            var config = new DataProcessorConfig.TimeConfig(source.attributes.length(), (byte) (hasTimePassthrough ? 2 : 0), period);
+            var next = source.transform(config);
 
-            byte[] config = new byte[6];
-            config[0] = 0x8;
-            config[1] = (byte)((source.attributes.length() - 1) & 0x7 | (outputMask << 3));
-            Array.Copy(Util.uintToBytesLe(period), 0, config, 2, 4);
-            
-            return postCreate(null, new TimeEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new TimeEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         [DataContract]
@@ -931,10 +742,10 @@ namespace MbientLab.MetaWear.Impl {
                 throw new IllegalRouteOperationException("Not enough space to in the ble packet to pack " + count + " data samples");
             }
 
-            byte[] config = new byte[] { DataProcessor.TYPE_PACKER, (byte)((source.attributes.length() - 1) & 0x1f), (byte)((count - 1) & 0x1f) };
-            DataTypeBase processor = source.dataProcessorCopy(source, source.attributes.dataProcessorCopyCopies(count));
+            var config = new DataProcessorConfig.PackerConfig(source.attributes.length(), count);
+            var next = source.transform(config);
 
-            return postCreate(null, new PackerEditorInner(config, processor, state.bridge));
+            return postCreate(next.Item2, new PackerEditorInner(config.Build(), next.Item1, state.bridge));
         }
 
         public IRouteComponent Account() {
@@ -946,10 +757,10 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             const byte size = 4;
-            byte[] config = new byte[] { DataProcessor.TYPE_ACCOUNTER, (0x1 | ((size - 1) << 4)), 0x3 };
-            DataTypeBase processor = source.dataProcessorCopy(source, new DataAttributes(new byte[] { size, source.attributes.length() }, 1, 0, source.attributes.signed));
+            var config = new DataProcessorConfig.AccounterConfig(size);
+            var next = source.transform(config);
 
-            return postCreate(null, new NullEditor(config, processor, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
         }
 
         private RouteComponent postCreate(DataTypeBase processorState, EditorImplBase editor) {

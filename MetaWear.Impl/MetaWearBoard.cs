@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
@@ -169,8 +168,8 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             [DataMember] internal ScheduledTask[] activeTasks = null;
-            private TaskCompletionSource<DataTypeBase> createTimerTask;
-            private System.Threading.Timer timeoutFuture;
+
+            private TimedTask<byte> createTimerTask;
 
             public Timer(IModuleBoardBridge bridge) : base(bridge) {
                 activeTasks = new ScheduledTask[bridge.lookupModuleInfo(TIMER).extra[0]];
@@ -187,10 +186,8 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             protected override void init() {
-                bridge.addRegisterResponseHandler(Tuple.Create((byte)TIMER, TIMER_ENTRY), response => {
-                    timeoutFuture.Dispose();
-                    createTimerTask.SetResult(new IntegralDataType(TIMER, NOTIFY, response[2], new DataAttributes(new byte[] { }, 0, 0, false)));
-                });
+                createTimerTask = new TimedTask<byte>();
+                bridge.addRegisterResponseHandler(Tuple.Create((byte)TIMER, TIMER_ENTRY), response => createTimerTask.SetResult(response[2]));
             }
 
             public override void tearDown() {
@@ -204,7 +201,7 @@ namespace MbientLab.MetaWear.Impl {
                 };
             }
 
-            internal Task<DataTypeBase> create(uint period, ushort repititions, bool delay) {
+            internal async Task<DataTypeBase> create(uint period, ushort repititions, bool delay) {
                 byte[] cmd = new byte[9];
                 cmd[0] = (byte)TIMER;
                 cmd[1] = TIMER_ENTRY;
@@ -213,11 +210,10 @@ namespace MbientLab.MetaWear.Impl {
                 Array.Copy(Util.uintToBytesLe(period), 0, cmd, 2, 4);
                 Array.Copy(Util.ushortToBytesLe(repititions), 0, cmd, 6, 2);
 
-                createTimerTask = new TaskCompletionSource<DataTypeBase>();
-                timeoutFuture = new System.Threading.Timer(e => createTimerTask.SetException(new TimeoutException("Scheduling task timed out")), null, 250, Timeout.Infinite);
-                bridge.sendCommand(cmd);
+                var id = await createTimerTask.Execute("Did not receive timer ID within {0}ms", bridge.TimeForResponse,
+                    () => bridge.sendCommand(cmd));
 
-                return createTimerTask.Task;
+                return new IntegralDataType(TIMER, NOTIFY, id, new DataAttributes(new byte[] { }, 0, 0, false));
             }
 
             internal ScheduledTask createScheduledTask(byte id, Queue<byte> eventIds, IModuleBoardBridge bridge) {
@@ -230,11 +226,13 @@ namespace MbientLab.MetaWear.Impl {
         private class ModuleBoardBridge : IModuleBoardBridge {
             private MetaWearBoard metawear;
 
+            public int TimeForResponse => metawear.timeForResponse;
+
             public ModuleBoardBridge(MetaWearBoard metawear) {
                 this.metawear = metawear;
             }
             
-            public Task<bool> remoteDisconnect() {
+            public Task remoteDisconnect() {
                 return metawear.gatt.RemoteDisconnectAsync();
             }
 
@@ -245,7 +243,7 @@ namespace MbientLab.MetaWear.Impl {
             public void sendCommand(byte[] command) {
                 Event eventModule = GetModule<Event>();
 
-                if (eventModule.getEventConfig() != null) {
+                if (eventModule.ActiveDataType != null) {
                     eventModule.convertToEventCommand(command);
                 } else {
                     metawear.gatt.WriteCharacteristicAsync(
@@ -363,6 +361,20 @@ namespace MbientLab.MetaWear.Impl {
             public Version getFirmware() {
                 return metawear.persistent.attributes.firmware;
             }
+
+            public ICollection<DataTypeBase> aggregateDataSources() {
+                var seen = new HashSet<ModuleImplBase>();
+                List<DataTypeBase> sources = new List<DataTypeBase>();
+                foreach(var m in metawear.persistent.modules.Values) {
+                    var casted = m as ModuleImplBase;
+                    if (!seen.Contains(casted)) {
+                        casted.aggregateDataType(sources);
+                        seen.Add(casted);
+                    }
+                }
+
+                return sources;
+            }
         }
 
         [KnownType(typeof(ModuleInfo))]
@@ -400,16 +412,15 @@ namespace MbientLab.MetaWear.Impl {
         private IModuleBoardBridge bridge;
         private IBluetoothLeGatt gatt;
         private ILibraryIO io;
+        private int timeForResponse;
+        private TimedTask<bool> initTask;
 
         private HashSet<Tuple<byte, byte>> dataIdHeaders= new HashSet<Tuple<byte, byte>>();
         private Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>> dataHandlers= new Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>>();
         private Dictionary<Tuple<Byte, Byte>, Action<byte[]>> registerResponseHandlers= new Dictionary<Tuple<Byte, Byte>, Action<byte[]>>();
 
         public Action OnUnexpectedDisconnect { get; set; }
-        public string MacAddress { get {
-                return gatt.BluetoothAddress.ToString("X").Insert(2, ":").Insert(5, ":").Insert(8, ":").Insert(11, ":").Insert(14, ":");
-            }
-        }
+        public string MacAddress { get => gatt.BluetoothAddress.ToString("X").Insert(2, ":").Insert(5, ":").Insert(8, ":").Insert(11, ":").Insert(14, ":"); }
         public bool InMetaBootMode { get; set; }
         public Model? Model {
             get {
@@ -458,11 +469,14 @@ namespace MbientLab.MetaWear.Impl {
                 return null;
             }
         }
+        public int TimeForResponse { set => timeForResponse = Math.Min(value, 1000); }
 
         public MetaWearBoard(IBluetoothLeGatt gatt, ILibraryIO io) {
             this.gatt = gatt;
             this.io = io;
             InMetaBootMode = false;
+            timeForResponse = 250;
+            initTask = new TimedTask<bool>();
 
             bridge = new ModuleBoardBridge(this);
             gatt.OnDisconnect = unexpected => {
@@ -551,6 +565,46 @@ namespace MbientLab.MetaWear.Impl {
             return GetModule<Timer>().activeTasks[id];
         }
 
+        private class AnonymousRoute : IAnonymousRoute {
+            private readonly DeviceDataConsumer consumer;
+            private readonly IModuleBoardBridge bridge;
+
+            public string Identifier => consumer.source.CreateIdentifier(bridge);
+
+            internal AnonymousRoute(DeviceDataConsumer consumer, IModuleBoardBridge bridge) {
+                this.consumer = consumer;
+                this.bridge = bridge;
+            }
+
+            public void Subscribe(Action<IData> subscriber) {
+                consumer.subscriber = subscriber;
+            }
+        }
+
+        public async Task<IList<IAnonymousRoute>> CreateAnonymousRoutesAsync() {
+            var logging = GetModule<ILogging>();
+            if (logging == null) {
+                throw new NotSupportedException("On-board logging not available on this board or firmware");
+            }
+
+            var accelerometer = GetModule<IAccelerometer>();
+            if (accelerometer != null) {
+                await accelerometer.PullConfigAsync();
+            }
+
+            var gyro = GetModule<IGyroBmi160>();
+            if (gyro != null) {
+                await gyro.PullConfigAsync();
+            }
+
+            var sensorFusion = GetModule<ISensorFusionBosch>();
+            if (sensorFusion != null) {
+                await sensorFusion.PullConfigAsync();
+            }
+
+            return (await (logging as Logging).queryActiveLoggersAsync()).Select(e => new AnonymousRoute(e, bridge) as IAnonymousRoute).ToList();
+        }
+
         public IObserver LookupObserver(uint id) {
             return persistent.activeObservers.TryGetValue(id, out var observer) ? observer : null;
         }
@@ -577,7 +631,7 @@ namespace MbientLab.MetaWear.Impl {
             persistent.activeObservers.Clear();
         }
 
-        public async Task InitializeAsync() {
+        public async Task InitializeAsync(int timeout = 10000) {
             if (persistent.attributes == null) {
                 Stream ins = null;
                 try {
@@ -598,55 +652,59 @@ namespace MbientLab.MetaWear.Impl {
                     if (ins != null) ins.Dispose();
                 }
             }
-            if (persistent.attributes.hardwareRevision == null) {
-                persistent.attributes.hardwareRevision = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.HARDWARE_REVISION));
-            }
 
-            if (persistent.attributes.modelNumber == null) {
-                persistent.attributes.modelNumber = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.MODEL_NUMBER));
-            }
+            await initTask.Execute("Failed to initialize board within {0}ms", timeout,
+                async () => {
+                    if (persistent.attributes.hardwareRevision == null) {
+                        persistent.attributes.hardwareRevision = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.HARDWARE_REVISION));
+                    }
+                    if (persistent.attributes.modelNumber == null) {
+                        persistent.attributes.modelNumber = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.MODEL_NUMBER));
+                    }
 
-            try {
-                var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
-                await gatt.EnableNotificationsAsync(NOTIFY_CHAR, value => {
-                    Tuple<byte, byte> header = Tuple.Create(value[0], value[1]);
-                    Tuple<byte, byte, byte> dataHandlerKey = Tuple.Create(value[0], value[1], dataIdHeaders.Contains(header) ? value[2] : DataTypeBase.NO_ID);
+                    Exception error = null;
+                    try {
+                        var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
+                        await gatt.EnableNotificationsAsync(NOTIFY_CHAR, value => {
+                            Tuple<byte, byte> header = Tuple.Create(value[0], value[1]);
+                            Tuple<byte, byte, byte> dataHandlerKey = Tuple.Create(value[0], value[1], dataIdHeaders.Contains(header) ? value[2] : DataTypeBase.NO_ID);
 
-                    if (dataHandlers.TryGetValue(dataHandlerKey, out var handlers)) {
-                        foreach (var handler in handlers) {
-                            handler(value);
+                            if (dataHandlers.TryGetValue(dataHandlerKey, out var handlers)) {
+                                foreach (var handler in handlers) {
+                                    handler(value);
+                                }
+                            } else if (registerResponseHandlers.TryGetValue(header, out var handler)) {
+                                handler(value);
+                            } else if (value[1] == READ_INFO_REGISTER) {
+                                readModuleInfoTaskSource.SetResult(new ModuleInfo(value));
+                            }
+                        });
+                        InMetaBootMode = false;
+
+                        await DiscoverModulesAsync(persistent.attributes.firmware == null || persistent.attributes.firmware.CompareTo(firmware) != 0);
+                        persistent.attributes.firmware = firmware;
+
+                        if (persistent.modules.TryGetValue(typeof(ILogging).FullName, out var logging)) {
+                            await (logging as Logging).QueryTimeAsync();
                         }
-                    } else if (registerResponseHandlers.TryGetValue(header, out var handler)) {
-                        handler(value);
-                    } else if (value[1] == READ_INFO_REGISTER) {
-                        readModuleInfoTaskSource.SetResult(new ModuleInfo(value));
+
+                        using (MemoryStream outs = new MemoryStream()) {
+                            new DataContractSerializer(typeof(BoardAttributes)).WriteObject(outs, persistent.attributes);
+                            await io.LocalSaveAsync(BOARD_ATTR, outs.ToArray());
+                        }
+                    } catch (Exception e) {
+                        InMetaBootMode = await gatt.ServiceExistsAsync(Constants.METABOOT_SERVICE);
+                        if (!InMetaBootMode) {
+                            error = e;
+                        }
+                    } finally {
+                        if (error != null) {
+                            initTask.SetError(error);
+                        } else {
+                            initTask.SetResult(true);
+                        }
                     }
                 });
-                InMetaBootMode = false;
-
-                if (persistent.attributes.firmware == null || persistent.attributes.firmware.CompareTo(firmware) != 0) {
-                    persistent.attributes.firmware = firmware;
-                    await DiscoverModulesAsync(true);
-                } else {
-                    await DiscoverModulesAsync(false);
-                }
-
-                if (persistent.modules.TryGetValue(typeof(ILogging).FullName, out var logging)) {
-                    await (logging as Logging).QueryTimeAsync();
-                }
-
-                using (MemoryStream outs = new MemoryStream()) {
-                    new DataContractSerializer(typeof(BoardAttributes)).WriteObject(outs, persistent.attributes);
-                    await io.LocalSaveAsync(BOARD_ATTR, outs.ToArray());
-                }
-            } catch (Exception e) {
-                if (await gatt.ServiceExistsAsync(Constants.METABOOT_SERVICE)) {
-                    InMetaBootMode = true;
-                } else {
-                    InMetaBootMode = false;
-                    throw e;
-                }
-            }
         }
 
         private TaskCompletionSource<ModuleInfo> readModuleInfoTaskSource;
@@ -913,6 +971,14 @@ namespace MbientLab.MetaWear.Impl {
                     return true;
                 } catch (IndexOutOfRangeException) {
                     return false;
+                }
+            }
+
+            public string GenerateIdentifier(int pos) {
+                try {
+                    return consumers[pos].source.CreateIdentifier(bridge);
+                } catch (IndexOutOfRangeException) {
+                    return null;
                 }
             }
         }

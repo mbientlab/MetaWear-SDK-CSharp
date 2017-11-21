@@ -14,8 +14,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             serialPassthrough = metawear.GetModule<ISerialPassthrough>();
             i2c = serialPassthrough.I2C(0xa, 0x1);
@@ -67,9 +67,9 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void DirectReadTimeout() {
-            Assert.Throws<TimeoutException>(() => {
+            Assert.ThrowsAsync<TimeoutException>(async () => {
                 try {
-                    serialPassthrough.ReadI2CAsync(0x1c, 0x0d, 1).Wait();
+                    await serialPassthrough.ReadI2CAsync(0x1c, 0x0d, 1);
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }

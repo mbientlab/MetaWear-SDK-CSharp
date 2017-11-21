@@ -4,6 +4,7 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using System.Runtime.Serialization;
 using MbientLab.MetaWear.Sensor.MagnetometerBmm150;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(Bmm150CartesianFloatData))]
@@ -73,6 +74,11 @@ namespace MbientLab.MetaWear.Impl {
         public MagnetometerBmm150(IModuleBoardBridge bridge) : base(bridge) {
             bFieldDataType = new Bmm150CartesianFloatData(MAG_DATA, 1);
             packedBFieldDataType = new Bmm150CartesianFloatData(PACKED_MAG_DATA, 3);
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(bFieldDataType);
+            collection.Add(packedBFieldDataType);
         }
 
         public void Configure(ushort xyReps = 9, ushort zReps = 15, OutputDataRate odr = OutputDataRate._10Hz) {

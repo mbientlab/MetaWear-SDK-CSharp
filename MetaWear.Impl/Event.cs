@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
 
@@ -12,42 +11,17 @@ namespace MbientLab.MetaWear.Impl {
         private const byte ENTRY = 2, CMD_PARAMETERS = 3, REMOVE = 4, REMOVE_ALL = 5;
 
         internal Tuple<Byte, Byte, Byte> feedbackParams = null;
-        private Timer eventTimeoutFuture;
-        private Queue<byte> successfulEvents;
-        private Queue<Tuple<DataTypeBase, Action>> pendingEventCodeBlocks;
-        private TaskCompletionSource<Queue<byte>> createEventsTask;
+        private TimedTask<byte> createEventTask;
         private Queue<byte[]> recordedCommands;
-        private bool isRecording = false;
-        private TimerCallback callback;
+
+        internal DataTypeBase ActiveDataType { private set; get; }
 
         public Event(IModuleBoardBridge bridge) : base(bridge) {
         }
 
         protected override void init() {
-            callback = e => {
-                foreach (byte id in successfulEvents) {
-                    remove(id);
-                }
-
-                pendingEventCodeBlocks = null;
-                recordedCommands = null;
-                createEventsTask.SetException(new TimeoutException("Timed out programming commands"));
-            };
-
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)EVENT, ENTRY), response => {
-                eventTimeoutFuture.Dispose();
-
-                successfulEvents.Enqueue(response[2]);
-                if (recordedCommands.Count != 0) {
-                    bridge.sendCommand(recordedCommands.Dequeue());
-                    bridge.sendCommand(recordedCommands.Dequeue());
-
-                    eventTimeoutFuture = new Timer(callback, null, 250, Timeout.Infinite);
-                } else {
-                    pendingEventCodeBlocks.Dequeue();
-                    recordCommand();
-                }
-            });
+            createEventTask = new TimedTask<byte>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)EVENT, ENTRY), response => createEventTask.SetResult(response[2]));
         }
 
         public override void tearDown() {
@@ -58,23 +32,41 @@ namespace MbientLab.MetaWear.Impl {
             bridge.sendCommand(new byte[] { (byte) EVENT, REMOVE, id });
         }
 
-        internal Task<Queue<byte>> queueEvents(Queue<Tuple<DataTypeBase, Action>> eventCodeBlocks) {
-            successfulEvents = new Queue<byte>();
-            pendingEventCodeBlocks = eventCodeBlocks;
-            createEventsTask = new TaskCompletionSource<Queue<byte>>();
-            recordCommand();
+        internal async Task<Queue<byte>> queueEvents(Queue<Tuple<DataTypeBase, Action>> eventCodeBlocks) {
+            var successfulEvents = new Queue<byte>();
 
-            return createEventsTask.Task;
-        }
+            try {
+                while (eventCodeBlocks.Count != 0) {
+                    ActiveDataType = eventCodeBlocks.Peek().Item1;
 
-        internal byte[] getEventConfig() {
-            return isRecording ? pendingEventCodeBlocks.Peek().Item1.eventConfig : null;
+                    recordedCommands = new Queue<byte[]>();
+                    eventCodeBlocks.Peek().Item2();
+                    ActiveDataType = null;
+
+                    while (recordedCommands.Count != 0) {
+                        var id = await createEventTask.Execute("Programming command timed out after {0}ms", bridge.TimeForResponse * 2, () => {
+                            bridge.sendCommand(recordedCommands.Dequeue());
+                            bridge.sendCommand(recordedCommands.Dequeue());
+                        });
+
+                        successfulEvents.Enqueue(id);
+                    }
+
+                    eventCodeBlocks.Dequeue();
+                }
+            } catch (TimeoutException e) {
+                foreach (byte id in successfulEvents) {
+                    remove(id);
+                }
+                throw e;
+            }
+
+            return successfulEvents;
         }
 
         internal void convertToEventCommand(byte[] command) {
-            byte[] eventConfig = getEventConfig();
             byte[] commandEntry = new byte[] {(byte) EVENT, ENTRY,
-                        eventConfig[0], eventConfig[1], eventConfig[2],
+                        ActiveDataType.eventConfig[0], ActiveDataType.eventConfig[1], ActiveDataType.eventConfig[2],
                         command[0], command[1], (byte) (command.Length - 2)};
 
             if (feedbackParams != null) {
@@ -92,22 +84,6 @@ namespace MbientLab.MetaWear.Impl {
             eventParameters[0] = (byte) EVENT;
             eventParameters[1] = CMD_PARAMETERS;
             recordedCommands.Enqueue(eventParameters);
-        }
-
-        private void recordCommand() {
-            if (pendingEventCodeBlocks.Count != 0) {
-                isRecording = true;
-                recordedCommands = new Queue<byte[]>();
-                pendingEventCodeBlocks.Peek().Item2();
-                isRecording = false;
-
-                eventTimeoutFuture = new Timer(callback, null, 250, Timeout.Infinite);
-                bridge.sendCommand(recordedCommands.Dequeue());
-                bridge.sendCommand(recordedCommands.Dequeue());
-                
-            } else {
-                createEventsTask.SetResult(successfulEvents);
-            }
         }
     }
 }

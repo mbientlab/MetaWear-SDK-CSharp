@@ -16,12 +16,39 @@ namespace MbientLab.MetaWear.Sensor {
             _1000Hz,
             _2000Hz
         }
+
+        /// <summary>
+        /// Enumeration of hold times for the BMI160's flat detection algorithm
+        /// </summary>
+        public enum FlatHoldTime {
+            _0ms,
+            _512ms,
+            _1024ms,
+            _2048ms
+        }
+        /// <summary>
+        /// Extension of the <see cref="ITapDataProducer"/> interface providing
+        /// configuration options specific to the BMI160 IMU
+        /// </summary>
+        public interface IBma255FlatDataProducer : IFlatDataProducer {
+            /// <summary>
+            /// Configure the flat detection algorithm.
+            /// </summary>
+            /// <param name="Hold">Delay for which the flat value must remain stable for an interrupt</param>
+            /// <param name="Theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
+            void Configure(FlatHoldTime? Hold = null, float? Theta = null);
+        }
     }
 
     /// <summary>
     /// Extension of the <see cref="IAccelerometer"/> interface providing finer control of the BMA255 accelerometer
     /// </summary>
     public interface IAccelerometerBma255 : IAccelerometerBosch {
+        /// <summary>
+        /// Async data producer for the BMA255's flat detection algorithm
+        /// </summary>
+        new IBma255FlatDataProducer Flat { get; }
+
         /// <summary>
         /// Configure the snsor with settings specific to the BMA255 accelerometer
         /// </summary>

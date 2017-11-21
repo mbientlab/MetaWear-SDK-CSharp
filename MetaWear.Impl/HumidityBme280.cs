@@ -4,6 +4,7 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using MbientLab.MetaWear.Sensor.BarometerBosch;
 using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
@@ -41,6 +42,10 @@ namespace MbientLab.MetaWear.Impl {
 
         public HumidityBme280(IModuleBoardBridge bridge) : base(bridge) {
             humidityData = new HumidityFLoatData();
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(humidityData);
         }
 
         public void Configure(Oversampling os = Oversampling.Standard) {

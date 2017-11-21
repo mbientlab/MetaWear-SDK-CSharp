@@ -2,7 +2,6 @@
 using static MbientLab.MetaWear.Impl.Module;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Runtime.Serialization;
 
@@ -16,31 +15,34 @@ namespace MbientLab.MetaWear.Impl {
                 ERASE_ALL = 0x8,
                 ADD_PARTIAL = 0x9;
 
-        private Timer startMacroRecord;
         internal bool isRecording = false;
         internal Queue<byte[]> commands;
-        private Tuple<TaskCompletionSource<byte>, byte> pendingMacro;
+        private TimedTask<byte> beginMacroTask;
+        private bool execOnBoot;
 
         public Macro(IModuleBoardBridge bridge) : base(bridge) {
         }
 
         protected override void init() {
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)MACRO, BEGIN), response => {
-                foreach(var it in commands) {
-                    foreach (var cmd in convertToMacroCommand(it)) {
-                        bridge.sendCommand(cmd);
-                    }
-                }
-
-                bridge.sendCommand(new byte[] { (byte) MACRO, END });
-                pendingMacro.Item1.SetResult(response[2]);
-            });
+            beginMacroTask = new TimedTask<byte>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)MACRO, BEGIN), response => beginMacroTask.SetResult(response[2]));
         }
 
-        public Task<byte> EndRecordAsync() {
+        public async Task<byte> EndRecordAsync() {
             isRecording = false;
-            startMacroRecord = new Timer(e => bridge.sendCommand(new byte[] { (byte) MACRO, BEGIN, pendingMacro.Item2 }), null, WRITE_MACRO_DELAY, Timeout.Infinite);
-            return pendingMacro.Item1.Task;
+            await Task.Delay(WRITE_MACRO_DELAY);
+            var id = await beginMacroTask.Execute("Did not receive macro id within {0}ms", bridge.TimeForResponse, 
+                () => bridge.sendCommand(new byte[] { (byte)MACRO, BEGIN, (byte)(execOnBoot ? 1 : 0) }));
+
+            foreach (var it in commands) {
+                foreach (var cmd in convertToMacroCommand(it)) {
+                    bridge.sendCommand(cmd);
+                }
+            }
+
+            bridge.sendCommand(new byte[] { (byte)MACRO, END });
+
+            return id;
         }
 
         public void EraseAll() {
@@ -54,7 +56,7 @@ namespace MbientLab.MetaWear.Impl {
         public void StartRecord(bool execOnBoot = true) {
             isRecording = true;
             commands = new Queue<byte[]>();
-            pendingMacro = Tuple.Create(new TaskCompletionSource<Byte>(), (byte) (execOnBoot ? 1 : 0));
+            this.execOnBoot = execOnBoot;
         }
 
         private byte[][] convertToMacroCommand(byte[] command) {

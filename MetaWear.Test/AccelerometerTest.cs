@@ -26,8 +26,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             accelerometer = metawear.GetModule<IAccelerometer>();
         }
@@ -118,9 +118,9 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void HandleLogData() {
+        public async Task HandleLogData() {
             Acceleration expected = null, actual = null;
-            accelerometer.Acceleration.AddRouteAsync(source => source.Log(data => actual = data.Value<Acceleration>())).Wait();
+            await accelerometer.Acceleration.AddRouteAsync(source => source.Log(data => actual = data.Value<Acceleration>()));
 
             if (accelerometer is IAccelerometerMma8452q) {
                 // (-1.450f, -2.555f, 0.792f)

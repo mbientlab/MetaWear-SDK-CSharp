@@ -37,8 +37,8 @@ namespace MbientLab.MetaWear.Test {
         public ProximityTsl2671Test() : base(typeof(IProximityTsl2671)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             proximity = metawear.GetModule<IProximityTsl2671>();
         }

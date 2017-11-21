@@ -16,6 +16,16 @@ namespace MbientLab.MetaWear {
         bool Valid { get; }
 
         /// <summary>
+        /// Generates a string identifying the data producer chain the subscriber is receiving data from.
+        /// <para>
+        /// This value can be matched with the <see cref="IAnonymousRoute.Identifier"/> property if syncing 
+        /// logged data with the <see cref="IAnonymousRoute"/> interface.
+        /// </para>
+        /// </summary>
+        /// <param name="pos">Numerical position of the subscriber to interact with, starting from 0</param>
+        /// <returns>String identifying the data chain, null if <code>param</code> value is out of bounds</returns>
+        string GenerateIdentifier(int pos);
+        /// <summary>
         /// Assigns a subscriber to the specified data consumer (stream or logger)
         /// </summary>
         /// <param name="pos">Numerical position of the subscriber to interact with, starting at 0</param>

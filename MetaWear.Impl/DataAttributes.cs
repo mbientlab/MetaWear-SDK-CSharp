@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -51,6 +52,24 @@ namespace MbientLab.MetaWear.Impl {
 
         public byte unitLength() {
             return sizes.Aggregate((byte) 0, (acc, s) => (byte) (acc + s));
+        }
+
+        public override bool Equals(object obj) {
+            var attributes = obj as DataAttributes;
+            return attributes != null &&
+                   sizes.SequenceEqual(attributes.sizes) &&
+                   copies == attributes.copies &&
+                   offset == attributes.offset &&
+                   signed == attributes.signed;
+        }
+
+        public override int GetHashCode() {
+            var hashCode = 1372441812;
+            hashCode = hashCode * -1521134295 + EqualityComparer<byte[]>.Default.GetHashCode(sizes);
+            hashCode = hashCode * -1521134295 + copies.GetHashCode();
+            hashCode = hashCode * -1521134295 + offset.GetHashCode();
+            hashCode = hashCode * -1521134295 + signed.GetHashCode();
+            return hashCode;
         }
     }
 }

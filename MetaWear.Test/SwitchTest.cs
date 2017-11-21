@@ -11,34 +11,32 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             switchModule = metawear.GetModule<ISwitch>();
         }
 
         [Test]
-        public void SubAndUnSub() {
+        public async Task SubAndUnSub() {
             byte[][] expected = new byte[][] {
                 new byte[] {0x1, 0x1, 0x1 },
                 new byte[] {0x1, 0x1, 0x0 }
             };
 
-            Task<IRoute> task = switchModule.State.AddRouteAsync(source => source.Stream(null));
-            task.Wait();
+            var route = await switchModule.State.AddRouteAsync(source => source.Stream(null));
 
-            task.Result.Remove();
+            route.Remove();
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 
         [Test]
-        public void HandleData() {
+        public async Task HandleData() {
             byte[] expected = new byte[] { 0x1, 0x0 }, 
                 actual = new byte[] { 0xff, 0xff };
 
             int i = 0;
-            Task<IRoute> task = switchModule.State.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>()));
-            task.Wait();
+            var route = await switchModule.State.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<byte>()));
 
             platform.sendMockResponse(new byte[] { 0x1, 0x1, 0x1 });
             platform.sendMockResponse(new byte[] { 0x1, 0x1, 0x0 });
@@ -57,19 +55,17 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void HandleStateData() {
+        public async Task HandleStateData() {
             byte[] expected = new byte[] { 0x1, 0x0 },
                 actual = new byte[] { 0xff, 0xff };
 
             Task<byte> task = switchModule.State.ReadAsync();
             platform.sendMockResponse(new byte[] { 0x01, 0x81, 0x1 });
-            task.Wait();
-            actual[0] = task.Result;
+            actual[0] = await task;
 
             task = switchModule.State.ReadAsync();
             platform.sendMockResponse(new byte[] { 0x01, 0x81, 0x0 });
-            task.Wait();
-            actual[1] = task.Result;
+            actual[1] = await task;
 
             Assert.That(actual, Is.EqualTo(expected));
         }

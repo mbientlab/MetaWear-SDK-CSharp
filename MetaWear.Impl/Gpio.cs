@@ -12,6 +12,21 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(GpioPin))]
     [DataContract]
     class Gpio : ModuleImplBase, IGpio {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (Util.clearRead(dataType.eventConfig[1])) {
+                case READ_AI_ABS_REF:
+                    return string.Format("abs-ref[{0}]", dataType.eventConfig[2]);
+                case READ_AI_ADC:
+                    return string.Format("adc[{0}]", dataType.eventConfig[2]);
+                case READ_DI:
+                    return string.Format("digital[{0}]", dataType.eventConfig[2]);
+                case PIN_CHANGE_NOTIFY:
+                    return string.Format("pin-monitor[{0}]", dataType.eventConfig[2]);
+                default:
+                    return null;
+            }
+        }
+
         private const byte REVISION_ENHANCED_ANALOG = 2;
         private const byte SET_DO = 1, CLEAR_DO = 2,
                 PULL_UP_DI = 3, PULL_DOWN_DI = 4, NO_PULL_DI = 5,
@@ -60,8 +75,8 @@ namespace MbientLab.MetaWear.Impl {
         [KnownType(typeof(IntegralDataType))]
         [DataContract]
         private class GpioPin : SerializableType, IPin {
-            [DataMember] private readonly byte mask, pin;
-            [DataMember] private DataTypeBase adc, absRef, digital, monitor;
+            [DataMember] internal readonly byte mask, pin;
+            [DataMember] internal DataTypeBase adc, absRef, digital, monitor;
             
             private IAnalogDataProducer adcProducer = null, absRefProducer = null;
             private IForcedDataProducer digitalProducer = null;
@@ -146,13 +161,13 @@ namespace MbientLab.MetaWear.Impl {
 
         private class GpioVirtualPin : IVirtualPin {
             private IModuleBoardBridge bridge;
-            private readonly byte pin;
             private DataProducer adc, absRef;
+            internal DataTypeBase adcType, absRefType;
 
             public IDataProducer Adc {
                 get {
                     if (adc == null) {
-                        adc = new DataProducer(new IntegralDataType(GPIO, Util.setRead(READ_AI_ADC), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false)), bridge);
+                        adc = new DataProducer(adcType, bridge);
                     }
                     return adc;
                 }
@@ -161,14 +176,15 @@ namespace MbientLab.MetaWear.Impl {
             public IDataProducer AbsoluteReference {
                 get {
                     if (absRef == null) {
-                        absRef = new DataProducer(new MilliUnitsFloatDataType(GPIO, Util.setRead(READ_AI_ABS_REF), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false)), bridge);
+                        absRef = new DataProducer(absRefType, bridge);
                     }
                     return absRef;
                 }
             }
 
             internal GpioVirtualPin(byte pin, IModuleBoardBridge bridge) {
-                this.pin = pin;
+                adcType = new IntegralDataType(GPIO, Util.setRead(READ_AI_ADC), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false));
+                absRefType = new MilliUnitsFloatDataType(GPIO, Util.setRead(READ_AI_ABS_REF), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false));
                 this.bridge = bridge;
             }
         }
@@ -190,6 +206,32 @@ namespace MbientLab.MetaWear.Impl {
             foreach (byte it in info.extra) {
                 pins.Add(new GpioPin(it, pin, bridge));
                 pin++;
+            }
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            foreach(var p in pins) {
+                if ((p as GpioPin).adc != null) {
+                    collection.Add((p as GpioPin).adc);
+                }
+                if ((p as GpioPin).absRef != null) {
+                    collection.Add((p as GpioPin).absRef);
+                }
+                if ((p as GpioPin).digital != null) {
+                    collection.Add((p as GpioPin).adc);
+                }
+                if ((p as GpioPin).monitor != null) {
+                    collection.Add((p as GpioPin).monitor);
+                }
+            }
+
+            foreach (var p in virtualPins.Values) {
+                if ((p as GpioVirtualPin).adcType != null) {
+                    collection.Add((p as GpioVirtualPin).adcType);
+                }
+                if ((p as GpioVirtualPin).absRefType != null) {
+                    collection.Add((p as GpioVirtualPin).absRefType);
+                }
             }
         }
 

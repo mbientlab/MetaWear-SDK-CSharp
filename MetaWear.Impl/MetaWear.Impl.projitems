@@ -25,6 +25,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)ColorTcs34725.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DataAttributes.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DataBase.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)DataProcessorConfig.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DataProcessor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DataProducer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Debug.cs" />
@@ -60,6 +61,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)IntegralDataType.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Switch.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Temperature.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)TimedTask.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Util.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Version.cs" />
   </ItemGroup>

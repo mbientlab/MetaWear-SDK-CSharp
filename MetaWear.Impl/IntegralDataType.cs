@@ -64,7 +64,7 @@ namespace MbientLab.MetaWear.Impl {
         internal IntegralDataType(DataTypeBase input, Module module, byte register, DataAttributes attributes) :
                 this(input, module, register, NO_ID, attributes) { }
 
-        private IntegralDataType(DataTypeBase input, Module module, byte register, byte id, DataAttributes attributes) :
+        internal IntegralDataType(DataTypeBase input, Module module, byte register, byte id, DataAttributes attributes) :
                 base(input, module, register, id, attributes) { }
 
         public override float scale(IModuleBoardBridge bridge) {

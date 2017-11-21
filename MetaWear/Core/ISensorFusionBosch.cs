@@ -1,5 +1,6 @@
 ﻿using MbientLab.MetaWear.Data;
 using System;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Core {
     namespace SensorFusionBosch {
@@ -203,5 +204,11 @@ namespace MbientLab.MetaWear.Core {
         /// Stop the algorithm
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Pulls the current sensor fusion configuration from the sensor
+        /// </summary>
+        /// <returns>Task that is completed when the settings are received</returns>
+        Task PullConfigAsync();
     }
 }

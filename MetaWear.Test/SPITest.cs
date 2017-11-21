@@ -14,8 +14,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             serialPassthrough = metawear.GetModule<ISerialPassthrough>();
             spi = serialPassthrough.SPI(0xe, 0x5);
@@ -57,9 +57,9 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void DirectReadBmi160Timeout() {
-            Assert.Throws<TimeoutException>(() => {
+            Assert.ThrowsAsync<TimeoutException>(async () => {
                 try {
-                    serialPassthrough.ReadSPIAsync(5, 10, 0, 11, 7, 3, SpiFrequency._8_MHz, lsbFirst: false, data: new byte[] { 0xda }).Wait();
+                    await serialPassthrough.ReadSPIAsync(5, 10, 0, 11, 7, 3, SpiFrequency._8_MHz, lsbFirst: false, data: new byte[] { 0xda });
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }

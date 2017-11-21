@@ -17,8 +17,10 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
+        public override Task SetUp() {
             metawear = new MetaWearBoard(platform, platform);
+
+            return Task.FromResult(true);
         }
 
         [Test]

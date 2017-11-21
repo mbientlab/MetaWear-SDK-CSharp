@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using MbientLab.MetaWear.Builder;
 using System.Threading.Tasks;
-using System.Threading;
 using MbientLab.MetaWear.Peripheral.SerialPassthrough;
 using System.Runtime.Serialization;
 
@@ -88,13 +87,24 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(I2CDataProducer))]
     [DataContract]
     class SerialPassthrough : ModuleImplBase, ISerialPassthrough {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (Util.clearRead(dataType.eventConfig[1])) {
+                case I2C_RW:
+                    return string.Format("i2c[{0}]", dataType.eventConfig[2]);
+                case SPI_RW:
+                    return string.Format("spi[{0}]", dataType.eventConfig[2]);
+                default:
+                    return null;
+            }
+        }
+
         private const byte SPI_REVISION = 1;
         private const byte I2C_RW = 0x1, SPI_RW = 0x2, DIRECT_I2C_READ_ID = 0xff, DIRECT_SPI_READ_ID = 0xf;
 
         [KnownType(typeof(SerialPassthroughData))]
         [DataContract]
         private class I2CDataProducer : SerializableType, II2CDataProducer {
-            [DataMember] DataTypeBase i2cByteArray;
+            [DataMember] internal readonly DataTypeBase i2cByteArray;
             [DataMember] private readonly byte id;
 
             public I2CDataProducer(byte id, byte length, IModuleBoardBridge bridge) : base(bridge) {
@@ -114,7 +124,7 @@ namespace MbientLab.MetaWear.Impl {
         [KnownType(typeof(SerialPassthroughData))]
         [DataContract]
         private class SPIDataProducer : SerializableType, ISPIDataProducer {
-            [DataMember] DataTypeBase spiByteArray;
+            [DataMember] internal readonly DataTypeBase spiByteArray;
             [DataMember] private readonly byte id;
 
             public SPIDataProducer(byte id, byte length, IModuleBoardBridge bridge) : base(bridge) {
@@ -160,10 +170,19 @@ namespace MbientLab.MetaWear.Impl {
         [DataMember] private Dictionary<Byte, I2CDataProducer> i2cProducers = new Dictionary<Byte, I2CDataProducer>();
         [DataMember] private Dictionary<Byte, SPIDataProducer> spiProducers = new Dictionary<Byte, SPIDataProducer>();
 
-        private Timer i2cReadTimeout, spiReadTimeout;
-        private TaskCompletionSource<byte[]> i2cReadTask, spiReadTask;
+        private TimedTask<byte[]> spiReadTask, i2cReadTask;
 
         public SerialPassthrough(IModuleBoardBridge bridge) : base(bridge) {
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            foreach(var it in i2cProducers.Values) {
+                collection.Add(it.i2cByteArray);
+            }
+
+            foreach (var it in spiProducers.Values) {
+                collection.Add(it.spiByteArray);
+            }
         }
 
         internal override void restoreTransientVars(IModuleBoardBridge bridge) {
@@ -178,31 +197,14 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected override void init() {
-            bridge.addDataIdHeader(Tuple.Create((byte) SERIAL_PASSTHROUGH, Util.setRead(I2C_RW)));
-            bridge.addDataHandler(Tuple.Create((byte)SERIAL_PASSTHROUGH, Util.setRead(I2C_RW), DIRECT_I2C_READ_ID), response => {
-                i2cReadTimeout.Dispose();
+            spiReadTask = new TimedTask<byte[]>();
+            i2cReadTask = new TimedTask<byte[]>();
 
-                if (response.Length > 3) {
-                    byte[] data = new byte[response.Length - 3];
-                    Array.Copy(response, 3, data, 0, data.Length);
-                    i2cReadTask.SetResult(data);
-                } else {
-                    i2cReadTask.SetException(new InvalidOperationException("Error reading I2C data from device or register address.  Response: " + Util.arrayToHexString(response)));
-                }
-            });
+            bridge.addDataIdHeader(Tuple.Create((byte) SERIAL_PASSTHROUGH, Util.setRead(I2C_RW)));
+            bridge.addDataHandler(Tuple.Create((byte)SERIAL_PASSTHROUGH, Util.setRead(I2C_RW), DIRECT_I2C_READ_ID), response => i2cReadTask.SetResult(response));
 
             bridge.addDataIdHeader(Tuple.Create((byte)SERIAL_PASSTHROUGH, Util.setRead(SPI_RW)));
-            bridge.addDataHandler(Tuple.Create((byte)SERIAL_PASSTHROUGH, Util.setRead(SPI_RW), DIRECT_SPI_READ_ID), response => {
-                spiReadTimeout.Dispose();
-
-                if (response.Length > 3) {
-                    byte[] data = new byte[response.Length - 3];
-                    Array.Copy(response, 3, data, 0, data.Length);
-                    spiReadTask.SetResult(data);
-                } else {
-                    spiReadTask.SetException(new InvalidOperationException("Error reading SPI data from device or register address.  Response: " + Util.arrayToHexString(response)));
-                }
-            });
+            bridge.addDataHandler(Tuple.Create((byte)SERIAL_PASSTHROUGH, Util.setRead(SPI_RW), DIRECT_SPI_READ_ID), response => spiReadTask.SetResult(response));
         }
 
         public II2CDataProducer I2C(byte id, byte length) {
@@ -239,12 +241,17 @@ namespace MbientLab.MetaWear.Impl {
             bridge.sendCommand(SERIAL_PASSTHROUGH, I2C_RW, config);
         }
 
-        public Task<byte[]> ReadI2CAsync(byte deviceAddr, byte registerAddr, byte length) {
-            i2cReadTask = new TaskCompletionSource<byte[]>();
-            i2cReadTimeout = new Timer(e => i2cReadTask.SetException(new TimeoutException("Reading i2c data timed out")), null, 250, Timeout.Infinite);
-            bridge.sendCommand(new byte[] { (byte) SERIAL_PASSTHROUGH, Util.setRead(I2C_RW), deviceAddr, registerAddr, DIRECT_I2C_READ_ID, length });
+        public async Task<byte[]> ReadI2CAsync(byte deviceAddr, byte registerAddr, byte length) {
+            var response = await i2cReadTask.Execute("Did not received I2C data within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SERIAL_PASSTHROUGH, Util.setRead(I2C_RW), deviceAddr, registerAddr, DIRECT_I2C_READ_ID, length }));
 
-            return i2cReadTask.Task;
+            if (response.Length > 3) {
+                byte[] data = new byte[response.Length - 3];
+                Array.Copy(response, 3, data, 0, data.Length);
+                return data;
+            } else {
+                throw new InvalidOperationException("Error reading I2C data from device or register address.  Response: " + Util.arrayToHexString(response));
+            }
         }
 
         public void WriteSPI(byte slaveSelectPin, byte clockPin, byte mosiPin, byte misoPin, byte mode, SpiFrequency frequency,
@@ -274,11 +281,8 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        public Task<byte[]> ReadSPIAsync(byte length, byte slaveSelectPin, byte clockPin, byte mosiPin, byte misoPin, byte mode, SpiFrequency frequency,
+        public async Task<byte[]> ReadSPIAsync(byte length, byte slaveSelectPin, byte clockPin, byte mosiPin, byte misoPin, byte mode, SpiFrequency frequency,
                 byte[] data = null, bool lsbFirst = true, bool useNativePins = true) {
-            spiReadTask = new TaskCompletionSource<byte[]>();
-            spiReadTimeout = new Timer(e => spiReadTask.SetException(new TimeoutException("Reading spi data timed out")), null, 250, Timeout.Infinite);
-
             SpiParameterBuilder builder = new SpiParameterBuilder((byte)((length - 1) | (DIRECT_SPI_READ_ID << 4)));
             builder.slaveSelectPin(slaveSelectPin)
                     .clockPin(clockPin)
@@ -297,9 +301,16 @@ namespace MbientLab.MetaWear.Impl {
                 builder.data(data);
             }
 
-            bridge.sendCommand(SERIAL_PASSTHROUGH, Util.setRead(SPI_RW), builder.build());
+            var response = await spiReadTask.Execute("Did not received SPI data within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(SERIAL_PASSTHROUGH, Util.setRead(SPI_RW), builder.build()));
 
-            return spiReadTask.Task;
+            if (response.Length > 3) {
+                byte[] dataInner = new byte[response.Length - 3];
+                Array.Copy(response, 3, dataInner, 0, dataInner.Length);
+                return dataInner;
+            } else {
+                throw new InvalidOperationException("Error reading SPI data from device or register address.  Response: " + Util.arrayToHexString(response));
+            }
         }
     }
 }

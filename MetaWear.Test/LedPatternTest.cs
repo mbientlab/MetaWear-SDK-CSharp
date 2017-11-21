@@ -2,6 +2,7 @@
 using MbientLab.MetaWear.Peripheral.Led;
 using NUnit.Framework;
 using System.Collections;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     internal class LedPatternTestFixtureData {
@@ -39,8 +40,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             led = metawear.GetModule<ILed>();
         }

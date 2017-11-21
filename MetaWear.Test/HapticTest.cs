@@ -1,5 +1,6 @@
 ﻿using MbientLab.MetaWear.Peripheral;
 using NUnit.Framework;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     [TestFixture]
@@ -11,8 +12,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             haptic = metawear.GetModule<IHaptic>();
         }

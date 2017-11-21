@@ -41,8 +41,8 @@ namespace MbientLab.MetaWear.Test {
         public ColorTcs34725Test() : base(typeof(IColorTcs34725)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             color = metawear.GetModule<IColorTcs34725>();
         }

@@ -4,7 +4,6 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Runtime.Serialization;
 using static MbientLab.MetaWear.Impl.RouteComponent;
 using MbientLab.MetaWear.Core.DataProcessor;
@@ -42,6 +41,25 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(DataTypeBase))]
     [DataContract]
     class DataProcessor : ModuleImplBase, IDataProcessor {
+        internal static String createIdentifier(DataTypeBase dataType, DataProcessor dataprocessor, Version firmware) {
+            byte register = Util.clearRead(dataType.eventConfig[1]);
+            switch (register) {
+                case NOTIFY:
+                case STATE:
+                    var processor = dataprocessor.lookupProcessor(dataType.eventConfig[2]);
+                    DataProcessorConfig config = DataProcessorConfig.from(firmware, processor.Item2.config);
+
+                    return config.CreateIdentifier(register == STATE, dataType.eventConfig[2]);
+                default:
+                    return null;
+            }
+        }
+
+        internal class ProcessorEntry {
+            internal byte id, offset, length;
+            internal byte[] source, config;
+        }
+
         internal const byte TYPE_ACCOUNTER = 0x11, TYPE_PACKER = 0x10;
         internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2;
         internal const byte ADD = 2,
@@ -52,13 +70,11 @@ namespace MbientLab.MetaWear.Impl {
                 NOTIFY_ENABLE = 7,
                 REMOVE_ALL = 8;
 
-        [DataMember] private Dictionary<byte, Tuple<DataTypeBase, EditorImplBase>> activeProcessors= new Dictionary<byte, Tuple<DataTypeBase, EditorImplBase>>();
+        [DataMember] internal Dictionary<byte, Tuple<DataTypeBase, EditorImplBase>> activeProcessors= new Dictionary<byte, Tuple<DataTypeBase, EditorImplBase>>();
         [DataMember] internal Dictionary<string, byte> nameToId = new Dictionary<string, byte>();
  
-        private Timer createTimeout;
-        private LinkedList<Tuple<DataTypeBase, EditorImplBase>> pendingProcessors;
-        private Queue<byte> successfulProcessors;
-        private TaskCompletionSource<Queue<byte>> createProcessorsTask;
+        private TimedTask<byte> createProcessorTask;
+        private TimedTask<byte[]> pullProcessorConfigTask;
         private Dictionary<string, IForcedDataProducer> stateDataProducers;
 
         public DataProcessor(IModuleBoardBridge bridge) : base(bridge) {
@@ -82,22 +98,12 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected override void init() {
+            createProcessorTask = new TimedTask<byte>();
+            pullProcessorConfigTask = new TimedTask<byte[]>();
+
             stateDataProducers = new Dictionary<string, IForcedDataProducer>();
-            bridge.addRegisterResponseHandler(Tuple.Create((byte) DATA_PROCESSOR, ADD), response => {
-                createTimeout.Dispose();
-
-                Tuple<DataTypeBase, EditorImplBase> current = pendingProcessors.First.Value;
-                pendingProcessors.RemoveFirst();
-
-                current.Item2.source.eventConfig[2] = response[2];
-                if (current.Item1 != null) {
-                    current.Item1.eventConfig[2] = response[2];
-                }
-                activeProcessors[response[2]] = current;
-                successfulProcessors.Enqueue(response[2]);
-
-                createProcessor();
-            });
+            bridge.addRegisterResponseHandler(Tuple.Create((byte) DATA_PROCESSOR, ADD), response => createProcessorTask.SetResult(response[2]));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)DATA_PROCESSOR, Util.setRead(ADD)), response => pullProcessorConfigTask.SetResult(response));
         }
 
         public IForcedDataProducer State(string name) {
@@ -124,36 +130,37 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        internal Task<Queue<byte>> queueDataProcessors(LinkedList<Tuple<DataTypeBase, EditorImplBase>> pendingProcessors) {
-            successfulProcessors = new Queue<byte>();
-            this.pendingProcessors = pendingProcessors;
-            createProcessorsTask = new TaskCompletionSource<Queue<byte>>();
-            createProcessor();
-            return createProcessorsTask.Task;
-        }
+        internal async Task<Queue<byte>> queueDataProcessors(LinkedList<Tuple<DataTypeBase, EditorImplBase>> pendingProcessors) {
+            var successfulProcessors = new Queue<byte>();
+            try {
+                while (pendingProcessors.Count != 0) {
+                    Tuple<DataTypeBase, EditorImplBase> current = pendingProcessors.First.Value;
+                    DataTypeBase input = current.Item2.source.input;
 
-        private void createProcessor() {
-            if (pendingProcessors.Count != 0) {
-                Tuple<DataTypeBase, EditorImplBase> current = pendingProcessors.First.Value;
-                DataTypeBase input = current.Item2.source.input;
+                    byte[] filterConfig = new byte[input.eventConfig.Length + 1 + current.Item2.config.Length];
+                    filterConfig[input.eventConfig.Length] = (byte)(((input.attributes.length() - 1) << 5) | input.attributes.offset);
+                    Array.Copy(input.eventConfig, 0, filterConfig, 0, input.eventConfig.Length);
+                    Array.Copy(current.Item2.config, 0, filterConfig, input.eventConfig.Length + 1, current.Item2.config.Length);
 
-                byte[] filterConfig = new byte[input.eventConfig.Length + 1 + current.Item2.config.Length];
-                filterConfig[input.eventConfig.Length] = (byte)(((input.attributes.length() - 1) << 5) | input.attributes.offset);
-                Array.Copy(input.eventConfig, 0, filterConfig, 0, input.eventConfig.Length);
-                Array.Copy(current.Item2.config, 0, filterConfig, input.eventConfig.Length + 1, current.Item2.config.Length);
+                    var id = await createProcessorTask.Execute("Did not receive data processor id within {0}ms", bridge.TimeForResponse,
+                        () => bridge.sendCommand(DATA_PROCESSOR, ADD, filterConfig));
 
-                bridge.sendCommand(DATA_PROCESSOR, ADD, filterConfig);
+                    pendingProcessors.RemoveFirst();
 
-                createTimeout = new Timer(e => {
-                    pendingProcessors = null;
-                    foreach (byte it in successfulProcessors) {
-                        removeProcessor(true, it);
+                    current.Item2.source.eventConfig[2] = id;
+                    if (current.Item1 != null) {
+                        current.Item1.eventConfig[2] = id;
                     }
-                    createProcessorsTask.SetException(new TimeoutException("Creating data processor timed out"));
-                }, null, 250, Timeout.Infinite);
-            } else {
-                createProcessorsTask.SetResult(successfulProcessors);
+                    activeProcessors[id] = current;
+                    successfulProcessors.Enqueue(id);
+                }
+            } catch (TimeoutException e) {
+                foreach (byte it in successfulProcessors) {
+                    removeProcessor(true, it);
+                }
+                throw e;
             }
+            return successfulProcessors;
         }
 
         void removeProcessor(bool sync, byte id) {
@@ -166,6 +173,51 @@ namespace MbientLab.MetaWear.Impl {
 
         internal Tuple<DataTypeBase, EditorImplBase> lookupProcessor(byte id) {
             return activeProcessors.TryGetValue(id, out var result) ? result : null;
+        }
+
+        internal async Task<Stack<ProcessorEntry>> pullChainAsync(byte id) {
+            var entries = new Stack<ProcessorEntry>();
+            var terminate = false;
+            var readId = id;
+
+            while (!terminate) {
+                if (activeProcessors.TryGetValue(readId, out var processor)) {
+                    var entry = new ProcessorEntry {
+                        id = readId,
+                        config = processor.Item2.config
+                    };
+                    entries.Push(entry);
+
+                    if (processor.Item2.source.eventConfig[0] == (byte)DATA_PROCESSOR) {
+                        readId = processor.Item2.source.eventConfig[2];
+                    } else {
+                        terminate = true;
+                    }
+                } else {
+                    var config = await pullProcessorConfigTask.Execute("Did not receive data processor config within {0}ms", bridge.TimeForResponse,
+                        () => bridge.sendCommand(new byte[] { (byte)DATA_PROCESSOR, Util.setRead(ADD), readId }));
+
+                    var entry = new ProcessorEntry {
+                        id = readId,
+                        offset = (byte)(config[5] & 0x1f),
+                        length = (byte)(((config[5] >> 5) & 0x7) + 1),
+                        source = new byte[3],
+                        config = new byte[config.Length - 6]
+                    };
+
+                    Array.Copy(config, 2, entry.source, 0, entry.source.Length);
+                    Array.Copy(config, 6, entry.config, 0, entry.config.Length);
+
+                    entries.Push(entry);
+                    if (config[2] == (byte)DATA_PROCESSOR) {
+                        readId = config[4];
+                    } else {
+                        terminate = true;
+                    }
+                }
+            }
+
+            return entries;
         }
     }
 }

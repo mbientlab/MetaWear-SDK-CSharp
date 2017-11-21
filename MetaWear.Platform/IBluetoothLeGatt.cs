@@ -54,7 +54,7 @@ namespace MbientLab.MetaWear.Platform {
         /// <summary>
         /// Disconnect attempt that will be initiated by the remote device
         /// </summary>
-        /// <returns>True when connection is lost</returns>
-        Task<bool> RemoteDisconnectAsync();
+        /// <returns>Null when connection is lost</returns>
+        Task RemoteDisconnectAsync();
     }
 }

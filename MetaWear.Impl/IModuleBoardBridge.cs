@@ -1,10 +1,11 @@
 ﻿using MbientLab.MetaWear.Builder;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Impl {
     interface IModuleBoardBridge {
-        Task<bool> remoteDisconnect();
+        Task remoteDisconnect();
 
         void sendCommand(byte[] command);
         void sendCommand(Module module, byte register, byte[] bytes);
@@ -30,5 +31,8 @@ namespace MbientLab.MetaWear.Impl {
         T GetModule<T>() where T : class, IModule;
 
         Version getFirmware();
+        int TimeForResponse { get; }
+
+        ICollection<DataTypeBase> aggregateDataSources();
     }
 }

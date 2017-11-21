@@ -11,8 +11,8 @@ namespace MbientLab.MetaWear.Test {
         public IBeaconTest() : base(typeof(ISwitch), typeof(IIBeacon), typeof(IDataProcessor)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             ibeacon = metawear.GetModule<IIBeacon>();
         }

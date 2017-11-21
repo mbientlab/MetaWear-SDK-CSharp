@@ -15,9 +15,9 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
+        public async override Task SetUp() {
             platform.initResponse.moduleResponses[0x9][3] = 0x1;
-            base.SetUp();
+            await base.SetUp();
 
             macro = metawear.GetModule<IMacro>();
         }
@@ -78,7 +78,7 @@ namespace MbientLab.MetaWear.Test {
             accelerometer.Configure(range: 16f);
             await accelerometer.Acceleration.AddRouteAsync(source =>
                 source.Map(Function1.Rss)
-                    .Average(16)
+                    .LowPass(16)
                     .Find(Threshold.Binary, 0.3f)
                     .Multicast()
                         .To().Filter(Comparison.Eq, -1).Stream(null)

@@ -3,6 +3,7 @@ using static MbientLab.MetaWear.Impl.Module;
 using MbientLab.MetaWear.Sensor;
 using MbientLab.MetaWear.Sensor.ColorTcs34725;
 using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
@@ -56,6 +57,17 @@ namespace MbientLab.MetaWear.Impl {
                     new IntegralDataType(COLOR_DETECTOR, Util.setRead(ADC), NO_ID, new DataAttributes(new byte[] { 2 }, 1, 6, true))
                 };
             }
+
+            internal override Tuple<DataTypeBase, DataTypeBase> transform(DataProcessorConfig config) {
+                switch (config.id) {
+                    case DataProcessorConfig.CombinerConfig.ID: {
+                        DataAttributes attributes = new DataAttributes(new byte[] { this.attributes.sizes[0] }, 1, 0, false);
+                        return Tuple.Create<DataTypeBase, DataTypeBase>(new IntegralDataType(this, DATA_PROCESSOR, DataProcessor.NOTIFY, attributes), null);
+                    }
+                }
+
+                return base.transform(config);
+            }
         }
 
         [DataMember] private AdcDataType adcDataType;
@@ -73,6 +85,10 @@ namespace MbientLab.MetaWear.Impl {
 
         public ColorTcs34725(IModuleBoardBridge bridge) : base(bridge) {
             adcDataType = new AdcDataType();
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(adcDataType);
         }
 
         public void Configure(Gain gain = Gain._1x, float integationTime = 2.4F, bool illuminate = false) {

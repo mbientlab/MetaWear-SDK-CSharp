@@ -40,14 +40,14 @@ namespace MbientLab.MetaWear.Impl {
                 }
             }
 
-            internal TemperatureSensor(SensorType type, byte channel, IModuleBoardBridge bridge) : base(new TemperatureFloatData(channel), bridge) {
+            internal TemperatureSensor(SensorType type, DataTypeBase dataType, IModuleBoardBridge bridge) : base(dataType, bridge) {
                 this.type = type;
             }
         }
 
         [DataContract]
         private class ExternalThermistor : TemperatureSensor, IExternalThermistor {
-            internal ExternalThermistor(byte channel, IModuleBoardBridge bridge) : base(SensorType.ExtThermistor, channel, bridge) {
+            internal ExternalThermistor(DataTypeBase dataType, IModuleBoardBridge bridge) : base(SensorType.ExtThermistor, dataType, bridge) {
             }
 
             public void Configure(byte dataPin, byte pulldownPin, bool activeHigh) {
@@ -56,28 +56,39 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         [DataMember] private readonly List<ISensor> sensors;
+        [DataMember] private readonly List<DataTypeBase> tempDataTypes;
 
         public Temperature(IModuleBoardBridge bridge) : base(bridge) {
             var info = bridge.lookupModuleInfo(TEMPERATURE);
 
             byte i = 0;
             sensors = new List<ISensor>();
+            tempDataTypes = new List<DataTypeBase>();
             foreach (byte it in info.extra) {
+                var dataType = new TemperatureFloatData(i);
+                tempDataTypes.Add(dataType);
+
                 switch(it) {
                     case (byte)SensorType.NrfSoc:
-                        sensors.Add(new TemperatureSensor(SensorType.NrfSoc, i, bridge));
+                        sensors.Add(new TemperatureSensor(SensorType.NrfSoc, dataType, bridge));
                         break;
                     case (byte)SensorType.ExtThermistor:
-                        sensors.Add(new ExternalThermistor(i, bridge));
+                        sensors.Add(new ExternalThermistor(dataType, bridge));
                         break;
                     case (byte)SensorType.BoschEnv:
-                        sensors.Add(new TemperatureSensor(SensorType.BoschEnv, i, bridge));
+                        sensors.Add(new TemperatureSensor(SensorType.BoschEnv, dataType, bridge));
                         break;
                     case (byte)SensorType.PresetThermistor:
-                        sensors.Add(new TemperatureSensor(SensorType.PresetThermistor, i, bridge));
+                        sensors.Add(new TemperatureSensor(SensorType.PresetThermistor, dataType, bridge));
                         break;
                 }
                 i++;
+            }
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            foreach(var it in tempDataTypes) {
+                collection.Add(it);
             }
         }
 

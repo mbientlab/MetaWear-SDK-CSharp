@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear {
@@ -56,12 +57,19 @@ namespace MbientLab.MetaWear {
         /// Called when the connection is unexpectedly lost i.e. not requested by the API
         /// </summary>
         Action OnUnexpectedDisconnect { get; set; }
+        /// <summary>
+        /// How long the API should wait (in milliseconds) before a required response is received.  
+        /// <para>This setting only affects creating timers, loggers, data processors, and macros.</para>
+        /// </summary>
+        int TimeForResponse { set; }
 
         /// <summary>
         /// Initialize the API's internal state and establish a connection to the board
         /// </summary>
+        /// <param name="timeout">How long to wait (in milliseconds) for initialization to completed</param>
         /// <returns>Null</returns>
-        Task InitializeAsync();
+        /// <exception cref="TimeoutException">Initialization does not complete within the allotted time</exception>
+        Task InitializeAsync(int timeout = 10000);
 
         /// <summary>
         /// Reads supported characteristics from the Device Information service
@@ -119,6 +127,11 @@ namespace MbientLab.MetaWear {
         /// <returns><see cref="IScheduledTask"/> corresonding to the specified ID, null if non can be found</returns>
         IScheduledTask LookupScheduledTask(byte id);
 
+        /// <summary>
+        /// Reads the current state of the board and creates anonymous routes based on what data is being logged
+        /// </summary>
+        /// <returns>List of created anonymous route objects</returns>
+        Task<IList<IAnonymousRoute>> CreateAnonymousRoutesAsync();
         /// <summary>
         /// Retrieves an observer
         /// </summary>

@@ -20,6 +20,7 @@ namespace MbientLab.MetaWear.Sensor {
             _800Hz,
             _1600Hz
         }
+
         /// <summary>
         /// Operation modes for the step detector algorithm
         /// </summary>
@@ -45,8 +46,8 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the step counter algorithm.  Must be called to have the step algorithm function as a counter.
             /// </summary>
-            /// <param name="mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
-            void Configure(StepDetectorMode mode = StepDetectorMode.Normal);
+            /// <param name="Mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
+            void Configure(StepDetectorMode Mode = StepDetectorMode.Normal);
             /// <summary>
             /// Resets the internal step counter
             /// </summary>
@@ -60,8 +61,70 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the step counter algorithm.  Must be called to have the step algorithm function as a detector.
             /// </summary>
-            /// <param name="mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
-            void Configure(StepDetectorMode mode = StepDetectorMode.Normal);
+            /// <param name="Mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
+            void Configure(StepDetectorMode Mode = StepDetectorMode.Normal);
+        }
+
+        /// <summary>
+        /// Enumeration of hold times for the BMI160's flat detection algorithm
+        /// </summary>
+        public enum FlatHoldTime {
+            _0ms,
+            _640ms,
+            _1280ms,
+            _2560ms
+        }
+        /// <summary>
+        /// Extension of the <see cref="ITapDataProducer"/> interface providing
+        /// configuration options specific to the BMI160 IMU
+        /// </summary>
+        public interface IBmi160FlatDataProducer : IFlatDataProducer {
+            /// <summary>
+            /// Configure the flat detection algorithm.
+            /// </summary>
+            /// <param name="Hold">Delay for which the flat value must remain stable for an interrupt</param>
+            /// <param name="Theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
+            void Configure(FlatHoldTime? Hold = null, float? Theta = null);
+        }
+
+        /// <summary>
+        /// Skip times available for significant motion detection
+        /// </summary>
+        public enum SkipTime {
+            /// <summary>
+            /// 1.5 seconds
+            /// </summary>
+            _1_5s,
+            _3s,
+            _6s,
+            _12s
+        }
+        /// <summary>
+        /// Proof times available for significant motion detection
+        /// </summary>
+        public enum ProofTime {
+            /// <summary>
+            /// 0.25 seconds
+            /// </summary>
+            _0_25s,
+            /// <summary>
+            /// 0.5 seconds
+            /// </summary>
+            _0_5s,
+            _1s,
+            _2s
+        }
+        /// <summary>
+        /// Extension of the <see cref="IMotionDataProducer"/> interface providing configuration 
+        /// options for significant motion detection on the BMI160 IMU
+        /// </summary>
+        public interface IBmi160MotionDataProducer : IMotionDataProducer {
+            /// <summary>
+            /// Configure the accelerometer for significant-motion detection
+            /// </summary>
+            /// <param name="Skip">Number of seconds to sleep after movement is detected</param>
+            /// <param name="Proof">Number of seconds that movement must still be detected after the skip time passed</param>
+            void ConfigureSignificant(SkipTime? Skip = null, ProofTime? Proof = null);
         }
     }
     /// <summary>
@@ -69,14 +132,22 @@ namespace MbientLab.MetaWear.Sensor {
     /// </summary>
     public interface IAccelerometerBmi160 : IAccelerometerBosch {
         /// <summary>
-        /// Gets the data producer for the step counter output
+        /// Data producer representing the step counter output
         /// </summary>
         IStepCounterDataProducer StepCounter { get; }
         /// <summary>
-        /// Gets the data producer for the step detector output
+        /// Data producer representing the step detector output
         /// </summary>
         IStepDetectorDataProducer StepDetector { get; }
-        
+        /// <summary>
+        /// Async data producer for the BMI160's flat detection algorithm
+        /// </summary>
+        new IBmi160FlatDataProducer Flat { get; }
+        /// <summary>
+        /// Async data producer for the BMI160's motion detection algorithm
+        /// </summary>
+        new IBmi160MotionDataProducer Motion { get; }
+
         /// <summary>
         /// Configure the snsor with settings specific to the BMA255 accelerometer
         /// </summary>

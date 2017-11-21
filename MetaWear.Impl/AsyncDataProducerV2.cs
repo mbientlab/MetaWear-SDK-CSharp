@@ -1,6 +1,6 @@
 ﻿namespace MbientLab.MetaWear.Impl {
     class AsyncDataProducerV2 : AsyncDataProducer {
-        private readonly byte mask;
+        protected byte mask;
 
         internal AsyncDataProducerV2(byte mask, DataTypeBase dataTypeBase, IModuleBoardBridge bridge) : 
             this(dataTypeBase.eventConfig[1], mask, dataTypeBase, bridge) { }

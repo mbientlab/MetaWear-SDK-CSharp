@@ -11,8 +11,8 @@ namespace MbientLab.MetaWear.Test {
             }
 
             [SetUp]
-            public override void SetUp() {
-                base.SetUp();
+            public async override Task SetUp() {
+                await base.SetUp();
 
                 accelerometer = metawear.GetModule<IAccelerometerBmi160>();
             }

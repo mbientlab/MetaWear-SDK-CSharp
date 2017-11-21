@@ -4,6 +4,9 @@ using static MbientLab.MetaWear.Impl.Module;
 
 using System;
 using System.Runtime.Serialization;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(Bmi160GyroCartesianFloatData))]
@@ -46,6 +49,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataMember] private readonly byte[] gyrDataConfig = new byte[] { 0x20 | (byte)OutputDataRate._100Hz, (byte)DataRange._2000dps };
         [DataMember] private readonly Bmi160GyroCartesianFloatData spinDataType, packedSpinDataType;
+        private TimedTask<byte[]> readConfigTask;
 
         private IAsyncDataProducer angularVelocity = null, packedAngularVelocity = null;
 
@@ -80,7 +84,17 @@ namespace MbientLab.MetaWear.Impl {
             spinDataType = new Bmi160GyroCartesianFloatData(DATA, 1);
             packedSpinDataType = new Bmi160GyroCartesianFloatData(PACKED_DATA, 3);
         }
-        
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(spinDataType);
+            collection.Add(packedSpinDataType);
+        }
+
+        protected override void init() {
+            readConfigTask = new TimedTask<byte[]>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)GYRO, Util.setRead(CONFIG)), response => readConfigTask.SetResult(response));
+        }
+
         public void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._125dps) {
             gyrDataConfig[1] &= 0xf8;
             gyrDataConfig[1] |= (byte) range;
@@ -97,6 +111,12 @@ namespace MbientLab.MetaWear.Impl {
 
         public void Stop() {
             bridge.sendCommand(new byte[] { (byte)GYRO, POWER_MODE, 0 });
+        }
+
+        public async Task PullConfigAsync() {
+            byte[] response = await readConfigTask.Execute("Did not receive gyro config within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)GYRO, Util.setRead(CONFIG) }));
+            Array.Copy(response, 2, gyrDataConfig, 0, gyrDataConfig.Length);
         }
     }
 }

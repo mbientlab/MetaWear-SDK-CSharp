@@ -1,4 +1,6 @@
-﻿namespace MbientLab.MetaWear.Sensor {
+﻿using System.Threading.Tasks;
+
+namespace MbientLab.MetaWear.Sensor {
     /// <summary>
     /// Measures sources of acceleration, such as gravity or motion.  This interface only provides general
     /// access to an accelerometer.  If you know specifically which accelerometer is on your board, use the
@@ -33,5 +35,11 @@
         /// Switch the accelerometer into standby mode
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// Pulls the current accelerometer output data rate and data range from the sensor
+        /// </summary>
+        /// <returns>Task that is completed when the settings are received</returns>
+        Task PullConfigAsync();
     }
 }

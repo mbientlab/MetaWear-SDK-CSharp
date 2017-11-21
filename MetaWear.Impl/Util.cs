@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Text;
 
 namespace MbientLab.MetaWear.Impl {
@@ -30,8 +29,59 @@ namespace MbientLab.MetaWear.Impl {
             return place;
         }
 
+        public static int closestIndexUShort(ushort[] values, ushort key) {
+            int smallest = values[0] < key ? key - values[0] : values[0] - key;
+            int place = 0;
+
+            for (int i = 1; i < values.Length; i++) {
+                int distance = values[0] < key ? key - values[0] : values[0] - key;
+                if (distance < smallest) {
+                    smallest = distance;
+                    place = i;
+                }
+            }
+
+            return place;
+        }
+
         internal static byte setRead(byte value) {
             return (byte)(0x80 | value);
+        }
+
+        internal static byte clearRead(byte value) {
+            return (byte)(value & 0x3f);
+        }
+
+        internal static ushort bytesLeToUshort(byte[] bytes, int offset) {
+            if (!BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes);
+            }
+
+            return BitConverter.ToUInt16(bytes, offset);
+        }
+
+        internal static short bytesLeToShort(byte[] bytes, int offset) {
+            if (!BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes);
+            }
+
+            return BitConverter.ToInt16(bytes, offset);
+        }
+
+        internal static uint bytesLeToUint(byte[] bytes, int offset) {
+            if (!BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes);
+            }
+
+            return BitConverter.ToUInt32(bytes, offset);
+        }
+
+        internal static int bytesLeToInt(byte[] bytes, int offset) {
+            if (!BitConverter.IsLittleEndian) {
+                Array.Reverse(bytes);
+            }
+
+            return BitConverter.ToInt32(bytes, offset);
         }
 
         internal static byte[] ushortToBytesLe(ushort value) {

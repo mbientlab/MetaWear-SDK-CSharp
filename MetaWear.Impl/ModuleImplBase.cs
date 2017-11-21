@@ -1,8 +1,9 @@
-﻿using System.Runtime.Serialization;
+﻿using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
-    class ModuleImplBase : SerializableType {
+    abstract class ModuleImplBase : SerializableType {
         internal ModuleImplBase(IModuleBoardBridge bridge) : base(bridge) {
             init();
         }
@@ -13,6 +14,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected virtual void init() { }
+        internal virtual void aggregateDataType(ICollection<DataTypeBase> collection) { }
         public virtual void tearDown() { }
         public virtual void disconnected() { }
     }

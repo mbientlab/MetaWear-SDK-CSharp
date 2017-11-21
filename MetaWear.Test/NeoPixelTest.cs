@@ -4,6 +4,7 @@ using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     public class NeoPixelTestDataClass {
@@ -26,8 +27,8 @@ namespace MbientLab.MetaWear.Test {
         public NeoPixelTest() : base(typeof(INeoPixel)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             neopixel = metawear.GetModule<INeoPixel>();
         }

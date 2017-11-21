@@ -1,6 +1,7 @@
 ﻿using MbientLab.MetaWear.Core;
 using NUnit.Framework;
 using System.Collections;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     internal class SettingsTestFixtureData {
@@ -24,8 +25,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             settings = metawear.GetModule<ISettings>();
         }

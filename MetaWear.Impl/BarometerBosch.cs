@@ -4,10 +4,21 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using MbientLab.MetaWear.Sensor.BarometerBosch;
 using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
     abstract class BarometerBosch : ModuleImplBase, IBarometerBosch {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (dataType.eventConfig[1]) {
+                case PRESSURE:
+                    return "pressure";
+                case ALTITUDE:
+                    return "altitude";
+                default:
+                    return null;
+            }
+        }
         internal const byte PRESSURE = 1, ALTITUDE = 2, CONFIG = 3, CYCLIC = 4;
 
         [DataContract]
@@ -75,6 +86,11 @@ namespace MbientLab.MetaWear.Impl {
                 }
                 return altitudeDataProducer;
             }
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(pressureDataType);
+            collection.Add(altitudeDataType);
         }
 
         public void Start() {

@@ -16,8 +16,8 @@ namespace MbientLab.MetaWear.Test {
         public LoggingDataTest() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(ILogging), typeof(IDebug)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             logging = metawear.GetModule<ILogging>();
         }
@@ -131,7 +131,6 @@ namespace MbientLab.MetaWear.Test {
         public async Task CheckRolloverAsync() {
             int actual = 0;
             DateTime? prev = null;
-            int i = 0;
             var route = await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log(data => {
                 if (prev != null) {
                     actual = Convert.ToInt32((data.Timestamp - prev.Value).TotalMilliseconds);

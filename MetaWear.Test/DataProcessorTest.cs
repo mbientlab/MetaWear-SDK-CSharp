@@ -20,18 +20,18 @@ namespace MbientLab.MetaWear.Test {
     [TestFixture]
     class TestProcessorState : DataProcessorTest {
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             var accelerometer = metawear.GetModule<IAccelerometer>();
-            accelerometer.Acceleration.AddRouteAsync(source =>
+            await accelerometer.Acceleration.AddRouteAsync(source =>
                 source.Map(Function1.Rms).Accumulate().Multicast()
                     .To().Buffer().Name("rms_buffer")
                     .To().Limit(30000).Stream()
-            ).Wait();
+            );
 
             var bufferState = metawear.GetModule<IDataProcessor>().State("rms_buffer");
-            bufferState.AddRouteAsync(source => source.Stream()).Wait();
+            await bufferState.AddRouteAsync(source => source.Stream());
         }
 
         [Test]
@@ -157,9 +157,9 @@ namespace MbientLab.MetaWear.Test {
     [TestFixture]
     class TestFreeFall : DataProcessorTest {
         [SetUp]
-        public override void SetUp() {
+        public async override Task SetUp() {
             platform.initResponse.moduleResponses[0x9][3] = 0x1;
-            base.SetUp();
+            await base.SetUp();
         }
 
         [Test]
@@ -250,9 +250,9 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void MissingFeedbackName() {
-            Assert.Throws<IllegalRouteOperationException>(() => {
+            Assert.ThrowsAsync<IllegalRouteOperationException>(async () => {
                 try {
-                    metawear.GetModule<IGpio>().Pins[0].Adc.AddRouteAsync(source => source.Map(Function2.Add, "non-existant")).Wait();
+                    await metawear.GetModule<IGpio>().Pins[0].Adc.AddRouteAsync(source => source.Map(Function2.Add, "non-existant"));
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }
@@ -351,11 +351,11 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void PacketOverflow() {
-            Assert.Throws<IllegalRouteOperationException>(() => {
+            Assert.ThrowsAsync<IllegalRouteOperationException>(async () => {
                 try {
-                    metawear.GetModule<IBarometerBosch>().Pressure.AddRouteAsync(
+                    await metawear.GetModule<IBarometerBosch>().Pressure.AddRouteAsync(
                         source => source.Pack(5)
-                    ).Wait();
+                    );
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }
@@ -452,11 +452,11 @@ namespace MbientLab.MetaWear.Test {
     [TestFixture]
     class TestAccounterPackerChain : DataProcessorTest {
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             var sensor = metawear.GetModule<ITemperature>().FindSensors(SensorType.PresetThermistor)[0];
-            sensor.AddRouteAsync(source => source.Account().Pack(2).Stream()).Wait();
+            await sensor.AddRouteAsync(source => source.Account().Pack(2).Stream());
         }
 
         [Test]
@@ -511,11 +511,11 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void PacketOverflow() {
-            Assert.Throws<IllegalRouteOperationException>(() => {
+            Assert.ThrowsAsync<IllegalRouteOperationException>(async () => {
                 try {
-                    metawear.GetModule<IBarometerBosch>().Pressure.AddRouteAsync(
+                    await metawear.GetModule<IBarometerBosch>().Pressure.AddRouteAsync(
                         source => source.Pack(4).Account()
-                    ).Wait();
+                    );
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }
@@ -526,11 +526,11 @@ namespace MbientLab.MetaWear.Test {
     [TestFixture]
     class TestPackerAccounterChain : DataProcessorTest {
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             var sensor = metawear.GetModule<ITemperature>().FindSensors(SensorType.PresetThermistor)[0];
-            sensor.AddRouteAsync(source => source.Pack(4).Account().Stream()).Wait();
+            await sensor.AddRouteAsync(source => source.Pack(4).Account().Stream());
         }
 
         [Test]

@@ -12,17 +12,15 @@ namespace MbientLab.MetaWear.Test {
         public TimerTest() : base(typeof(IGpio)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             gpio = metawear.GetModule<IGpio>();
 
-            Task<IScheduledTask> task = metawear.ScheduleAsync(3141, 59, true, () => {
+            mwTask = await metawear.ScheduleAsync(3141, 59, true, () => {
                 gpio.Pins[0].AbsoluteReference.Read();
                 gpio.Pins[0].Adc.Read();
             });
-            task.Wait();
-            mwTask = task.Result;
         }
 
         [Test]
@@ -65,9 +63,9 @@ namespace MbientLab.MetaWear.Test {
         [Test]
         public void Timeout() {
             platform.maxTimers = 0;
-            Assert.Throws<TimeoutException>(() => {
+            Assert.ThrowsAsync<TimeoutException>(async () => {
                 try {
-                    metawear.ScheduleAsync(26535, false, () => { }).Wait();
+                    await metawear.ScheduleAsync(26535, false, () => { });
                 } catch (AggregateException e) {
                     throw e.InnerException;
                 }

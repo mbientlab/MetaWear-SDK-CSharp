@@ -154,8 +154,8 @@ namespace MbientLab.MetaWear.Test {
         public SensorFusionBoschTest() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             sensorFusion = metawear.GetModule<ISensorFusionBosch>();
         }

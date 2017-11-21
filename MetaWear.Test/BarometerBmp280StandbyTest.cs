@@ -5,6 +5,7 @@ using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     public class BarometerBmp280StandbyTestDataClass {
@@ -38,8 +39,8 @@ namespace MbientLab.MetaWear.Test {
         public BarometerBmp280StandbyTest() : base(typeof(IBarometerBmp280)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             barometer = metawear.GetModule<IBarometerBmp280>();
         }

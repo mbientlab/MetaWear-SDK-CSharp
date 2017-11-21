@@ -28,8 +28,8 @@ namespace MbientLab.MetaWear.Test {
         public HumidityBme280Test() : base(typeof(IHumidityBme280)) { }
 
         [SetUp]
-        public override void SetUp() {
-            base.SetUp();
+        public async override Task SetUp() {
+            await base.SetUp();
 
             humidity = metawear.GetModule<IHumidityBme280>();
         }

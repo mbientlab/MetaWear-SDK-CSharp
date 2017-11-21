@@ -4,6 +4,7 @@ using MbientLab.MetaWear.Peripheral;
 using NUnit.Framework;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -58,8 +59,16 @@ namespace MbientLab.MetaWear.Test {
 
     [TestFixture]
     class MetaWearBoardInterfaceTest : UnitTestBase {
+        [SetUp]
+        public override Task SetUp() {
+            metawear = new MetaWearBoard(platform, platform);
+            return Task.FromResult(true);
+        }
+
         [Test]
         public async Task ReadDeviceInfoAsync() {
+            await metawear.InitializeAsync();
+
             DeviceInformation expected = new DeviceInformation("MbientLab Inc", "deadbeef", "003BF9", "1.2.5", "0.3");
             var actual = await metawear.ReadDeviceInformationAsync();
 
@@ -68,14 +77,34 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public async Task ReadBatteryLevelAsync() {
+            await metawear.InitializeAsync();
             Assert.That(await metawear.ReadBatteryLevelAsync(), Is.EqualTo(99));
+        }
+
+        [Test]
+        public void InitTimeout() {
+            Assert.ThrowsAsync<TimeoutException>(async () => {
+                Dictionary<byte, byte[]> copy = null;
+                try {
+                    copy = new Dictionary<byte, byte[]>(platform.initResponse.moduleResponses);
+                    platform.initResponse.moduleResponses.Clear();
+                    await metawear.InitializeAsync();
+                } catch (TimeoutException e) {
+                    foreach(var it in copy) {
+                        platform.initResponse.moduleResponses.Add(it.Key, it.Value);
+                    }
+                    throw e;
+                }
+            });
         }
     }
 
     [TestFixture]
     class MetaWearBoardDeserializeTest : UnitTestBase {
         [SetUp]
-        public override void SetUp() { }
+        public override Task SetUp() {
+            return Task.FromResult(true);
+        }
 
         [Test]
         public async Task NewFirmware() {

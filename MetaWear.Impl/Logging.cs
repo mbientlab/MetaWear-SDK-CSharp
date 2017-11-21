@@ -4,7 +4,6 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using System.Threading;
 using System.Linq;
 using System.Runtime.Serialization;
 
@@ -98,9 +97,12 @@ namespace MbientLab.MetaWear.Impl {
         [DataMember] private Dictionary<byte, TimeReference> logReferenceTicks= new Dictionary<byte, TimeReference>();
         [DataMember] private Dictionary<byte, LoggedDataConsumer> dataLoggers= new Dictionary<byte, LoggedDataConsumer>();
         [DataMember] private Dictionary<byte, uint> lastTimestamp= new Dictionary<byte, uint>();
+        [DataMember] private Dictionary<byte, uint> rollbackTimestamps;
 
-        private TaskCompletionSource<bool> queryTimeTask;
-        
+        private TimedTask<byte> createLoggerTask;
+        private TimedTask<byte[]> queryLogConfigTask;
+        private TimedTask<bool> queryTimeTask;
+
         public Logging(IModuleBoardBridge bridge) : base(bridge) {
         }
 
@@ -136,20 +138,17 @@ namespace MbientLab.MetaWear.Impl {
                 }
             }
         }
-
+        
         protected override void init() {
-            rollbackTimestamps = new Dictionary<byte, uint>();
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, TRIGGER), response => {
-                nReqLogIds--;
-                nextLogger.addId(response[2]);
+            queryLogConfigTask = new TimedTask<byte[]>();
+            createLoggerTask = new TimedTask<byte>();
 
-                if (nReqLogIds == 0) {
-                    timeoutFuture.Dispose();
-                    nextLogger.register(dataLoggers);
-                    successfulLoggers.Enqueue(nextLogger);
-                    createLogger();
-                }
-            });
+            if (rollbackTimestamps == null) {
+                rollbackTimestamps = new Dictionary<byte, uint>();
+            }
+
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(TRIGGER)), response => queryLogConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, TRIGGER), response => createLoggerTask.SetResult(response[2]));
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, READOUT_NOTIFY), response => {
                 processLogData(response, 2);
 
@@ -221,7 +220,6 @@ namespace MbientLab.MetaWear.Impl {
         private TaskCompletionSource<bool> downloadTask;
         private Action<uint, uint> updateHandler;
         private Action<LogDownloadError, byte, DateTime, byte[]> errorHandler;
-        private Dictionary<byte, uint> rollbackTimestamps;
 
         public Task DownloadAsync(uint nUpdates, Action<uint, uint> updateHandler, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
             if (downloadTask != null) {
@@ -264,18 +262,11 @@ namespace MbientLab.MetaWear.Impl {
             bridge.sendCommand(new byte[] { (byte)LOGGING, ENABLE, 0 });
         }
 
-        internal Task QueryTimeAsync() {
-            queryTimeTask = new TaskCompletionSource<bool>();
-            bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(TIME) });
-            return queryTimeTask.Task;
+        internal async Task QueryTimeAsync() {
+            queryTimeTask = new TimedTask<bool>();
+            await queryTimeTask.Execute("Failed to receive current time tick within {0}ms", bridge.TimeForResponse, 
+                () => bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(TIME) }));
         }
-
-        private byte nReqLogIds;
-        private Timer timeoutFuture;
-        private Queue<DataTypeBase> pendingProducers;
-        private Queue<LoggedDataConsumer> successfulLoggers;
-        private LoggedDataConsumer nextLogger;
-        private TaskCompletionSource<Queue<LoggedDataConsumer>> createLoggerTask;
 
         internal void Remove(byte id, bool sync) {
             dataLoggers.Remove(id);
@@ -283,43 +274,40 @@ namespace MbientLab.MetaWear.Impl {
                 bridge.sendCommand(new byte[] { (byte)LOGGING, REMOVE, id });
             }
         }
-        internal Task<Queue<LoggedDataConsumer>> CreateLoggersAsync(Queue<DataTypeBase> producers) {
-            pendingProducers = producers;
-            createLoggerTask = new TaskCompletionSource<Queue<LoggedDataConsumer>>();
-            successfulLoggers = new Queue<LoggedDataConsumer>();
-            createLogger();
-            return createLoggerTask.Task;
-        }
+        internal async Task<Queue<LoggedDataConsumer>> CreateLoggersAsync(Queue<DataTypeBase> producers) {
+            LoggedDataConsumer nextLogger = null;
+            var result = new Queue<LoggedDataConsumer>();
+            try {
+                while (producers.Count != 0) {
+                    nextLogger = new LoggedDataConsumer(producers.Dequeue());
+                    byte[] eventConfig = nextLogger.source.eventConfig;
 
-        private void createLogger() {
-            if (pendingProducers.Count != 0) {
-                nextLogger = new LoggedDataConsumer(pendingProducers.Dequeue());
-                byte[] eventConfig = nextLogger.source.eventConfig;
+                    var nReqLogIds = (byte)((nextLogger.source.attributes.length() - 1) / LOG_ENTRY_SIZE + 1);
+                    int remainder = nextLogger.source.attributes.length();
 
-                nReqLogIds = (byte)((nextLogger.source.attributes.length() - 1) / LOG_ENTRY_SIZE + 1);
-                int remainder = nextLogger.source.attributes.length();
+                    for (byte i = 0; i < nReqLogIds; i++, remainder -= LOG_ENTRY_SIZE) {
+                        int entrySize = Math.Min(remainder, LOG_ENTRY_SIZE), entryOffset = LOG_ENTRY_SIZE * i + nextLogger.source.attributes.offset;
 
-                for (byte i = 0; i < nReqLogIds; i++, remainder -= LOG_ENTRY_SIZE) {
-                    int entrySize = Math.Min(remainder, LOG_ENTRY_SIZE), entryOffset = LOG_ENTRY_SIZE * i + nextLogger.source.attributes.offset;
+                        byte[] command = new byte[6];
+                        command[0] = (byte)LOGGING;
+                        command[1] = TRIGGER;
+                        command[2 + eventConfig.Length] = (byte)(((entrySize - 1) << 5) | entryOffset);
+                        Array.Copy(eventConfig, 0, command, 2, eventConfig.Length);
 
-                    byte[] command = new byte[6];
-                    command[0] = (byte) LOGGING;
-                    command[1] = TRIGGER;
-                    command[2 + eventConfig.Length] = (byte)(((entrySize - 1) << 5) | entryOffset);
-                    Array.Copy(eventConfig, 0, command, 2, eventConfig.Length);
-
-                    bridge.sendCommand(command);
-                }
-                timeoutFuture = new Timer(e => {
-                    while (successfulLoggers.Count != 0) {
-                        successfulLoggers.Dequeue().remove(bridge, true);
+                        var id = await createLoggerTask.Execute("Did not receive logger id within {0}ms", bridge.TimeForResponse, () => bridge.sendCommand(command));
+                        nextLogger.addId(id);
                     }
-                    nextLogger.remove(bridge, true);
-                    pendingProducers = null;
-                    createLoggerTask.SetException(new TimeoutException("Creating logger timed out"));
-                }, null, nReqLogIds * 250, Timeout.Infinite);
-            } else {
-                createLoggerTask.SetResult(successfulLoggers);
+
+                    nextLogger.register(dataLoggers);
+                    result.Enqueue(nextLogger);
+                }
+                return result;
+            } catch (TimeoutException e) {
+                while (result.Count != 0) {
+                    result.Dequeue().remove(bridge, true);
+                }
+                nextLogger?.remove(bridge, true);
+                throw e;
             }
         }
 
@@ -340,6 +328,130 @@ namespace MbientLab.MetaWear.Impl {
 
             lastTimestamp[resetUid] = tick;
             return reference.timestamp.AddMilliseconds((long)((tick - reference.tick) * TICK_TIME_STEP));
+        }
+
+        internal async Task<ICollection<LoggedDataConsumer>> queryActiveLoggersAsync() {
+            var nRemainingLoggers = new Dictionary<DataTypeBase, byte>();
+            var placeholder = new Dictionary<Tuple<byte, byte, byte>, byte>();
+            ICollection <DataTypeBase> producers = bridge.aggregateDataSources();
+            Func<Tuple<byte, byte, byte>, byte, byte, DataTypeBase> guessLogSource = (key, offset, length) => {
+                List<DataTypeBase> possible = new List<DataTypeBase>();
+
+                foreach (DataTypeBase it in producers) {
+                    if (it.eventConfig[0] == key.Item1 && it.eventConfig[1] == key.Item2 && it.eventConfig[2] == key.Item3) {
+                        possible.Add(it);
+                        if (it.components != null) {
+                            possible.AddRange(it.components);
+                        }
+                    }
+                }
+
+                DataTypeBase original = null;
+                bool multipleEntries = false;
+                foreach (DataTypeBase it in possible) {
+                    if (it.attributes.length() > 4) {
+                        original = it;
+                        multipleEntries = true;
+                    }
+                }
+
+                if (multipleEntries) {
+                    if (offset == 0 && length > LOG_ENTRY_SIZE) {
+                        return original;
+                    }
+                    if (!placeholder.ContainsKey(key)) {
+                        if (length == LOG_ENTRY_SIZE) {
+                            placeholder.Add(key, length);
+                            return original;
+                        }
+                    } else {
+                        placeholder[key] += length;
+                        if (placeholder[key] == original.attributes.length()) {
+                            placeholder.Remove(key);
+                        }
+                        return original;
+                    }
+                }
+
+                foreach (DataTypeBase it in possible) {
+                    if (it.attributes.offset == offset && it.attributes.length() == length) {
+                        return it;
+                    }
+                }
+                return null;
+            };
+            
+            for (byte i = 0; i < bridge.lookupModuleInfo(LOGGING).extra[0]; i++) {
+                var response = await queryLogConfigTask.Execute("Querying log configuration (id = " + i + ") timed out after {0}ms", bridge.TimeForResponse,
+                    () => bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(TRIGGER), i }));
+
+                if (response.Length > 2) {
+                    byte offset = (byte)(response[5] & 0x1f), length = (byte)(((response[5] >> 5) & 0x3) + 1);
+                    var source = guessLogSource(Tuple.Create(response[2], response[3], response[4]), offset, length);
+                    var dataprocessor = bridge.GetModule<IDataProcessor>() as DataProcessor;
+
+                    var state = Util.clearRead(response[3]) == DataProcessor.STATE;
+                    if (response[2] == (byte)DATA_PROCESSOR && (response[3] == DataProcessor.NOTIFY || state)) {
+                        var chain = await dataprocessor.pullChainAsync(response[4]);
+                        var first = chain.First();
+                        var type = first.source != null ?
+                                guessLogSource(Tuple.Create(first.source[0], first.source[1], first.source[2]), first.offset, first.length) :
+                                dataprocessor.activeProcessors[first.id].Item2.source;
+
+                        while (chain.Count() != 0) {
+                            var current = chain.Pop();
+                            var next = type.transform(DataProcessorConfig.from(bridge.getFirmware(), current.config));
+
+                            next.Item1.eventConfig[2] = current.id;
+                            if (next.Item2 != null) {
+                                next.Item2.eventConfig[2] = current.id;
+                            }
+                            if (!dataprocessor.activeProcessors.ContainsKey(current.id)) {
+                                dataprocessor.activeProcessors.Add(current.id, Tuple.Create(next.Item2, new NullEditor(current.config, type, bridge) as EditorImplBase));
+                            }
+
+                            type = next.Item1;
+                        }
+
+                        source = state ? dataprocessor.lookupProcessor(response[4]).Item1 : type;
+                    }
+
+                    if (!nRemainingLoggers.ContainsKey(source) && source.attributes.length() > LOG_ENTRY_SIZE) {
+                        nRemainingLoggers.Add(source, (byte)Math.Ceiling((float)(source.attributes.length() / LOG_ENTRY_SIZE)));
+                    }
+
+                    LoggedDataConsumer logger = null;
+                    foreach (LoggedDataConsumer it in dataLoggers.Values) {
+                        if (it.source.eventConfig.SequenceEqual(source.eventConfig) && it.source.attributes.Equals(source.attributes)) {
+                            logger = it;
+                            break;
+                        }
+                    }
+
+                    if (logger == null || (offset != 0 && !nRemainingLoggers.ContainsKey(source))) {
+                        logger = new LoggedDataConsumer(source);
+                    }
+                    logger.addId(i);
+                    dataLoggers.Add(i, logger);
+
+                    if (nRemainingLoggers.TryGetValue(source, out var count)) {
+                        byte remaining = (byte)(count - 1);
+                        nRemainingLoggers[source] = remaining;
+                        if (remaining < 0) {
+                            nRemainingLoggers.Remove(source);
+                        }
+                    }
+                }
+            }
+
+            List<LoggedDataConsumer> orderedLoggers = new List<LoggedDataConsumer>();
+            foreach (var k in dataLoggers.Keys.OrderBy(d => d)) {
+                if (!orderedLoggers.Contains(dataLoggers[k])) {
+                    orderedLoggers.Add(dataLoggers[k]);
+                }
+            }
+
+            return orderedLoggers;
         }
     }
 }

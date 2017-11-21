@@ -1,34 +1,21 @@
-﻿using System;
-using System.Threading.Tasks;
-using System.Threading;
+﻿using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Impl {
     class ActiveDataProducer<T> : DataProducer, IActiveDataProducer<T> {
-        private Timer readTimeoutFuture;
-        private TaskCompletionSource<T> readTask = null;
+        private readonly TimedTask<T> readTask;
 
         internal ActiveDataProducer(DataTypeBase dataTypeBase, IModuleBoardBridge bridge)  : base(dataTypeBase, bridge) {
+            readTask = new TimedTask<T>();
         }
 
-        public Task<T> ReadAsync() {
-            readTask = new TaskCompletionSource<T>();
-            readTimeoutFuture = new Timer(e => {
-                if (readTask != null) {
-                    readTask.SetException(new TimeoutException("Reading current state timed out"));
-                    readTask = null;
-                }
-            }, null, 250, Timeout.Infinite);
-            bridge.sendCommand(dataTypeBase.createReadStateCmd());
-            return readTask.Task;
+        public async Task<T> ReadAsync() {
+            var cmd = dataTypeBase.createReadStateCmd();
+            return await readTask.Execute("Did not receive a response for command " + Util.arrayToHexString(cmd) + " within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(cmd));
         }
 
         internal void SetReadResult(T result) {
-            readTimeoutFuture.Dispose();
-
-            if (readTask != null) {
-                readTask.SetResult(result);
-                readTask = null;
-            }
+            readTask.SetResult(result);
         }
     }
 }

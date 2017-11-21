@@ -5,12 +5,31 @@ using System.Text;
 using MbientLab.MetaWear.Core.Settings;
 using static MbientLab.MetaWear.Impl.Module;
 using System.Threading.Tasks;
-using System.Threading;
 using System.Runtime.Serialization;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
     class Settings : ModuleImplBase, ISettings {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (Util.clearRead(dataType.eventConfig[1])) {
+                case BATTERY_STATE:
+                    switch (dataType.attributes.length()) {
+                        case 1:
+                            return "battery[0]";
+                        case 2:
+                            return "battery[1]";
+                    }
+                    return "battery";
+                case POWER_STATUS:
+                    return "power-status";
+                case CHARGE_STATUS:
+                    return "charge-status";
+                default:
+                    return null;
+            }
+        }
+
         private const float AD_INTERVAL_STEP = 0.625f, CONN_INTERVAL_STEP = 1.25f, SUPERVISOR_TIMEOUT_STEP = 10f;
         private const byte CONN_PARAMS_REVISION = 1, DISCONNECTED_EVENT_REVISION = 2, BATTERY_REVISION = 3, CHARGE_STATUS_REVISION = 5, WHITELIST_REVISION = 6;
         private const byte DEVICE_NAME = 1, AD_INTERVAL = 2, TX_POWER = 3,
@@ -62,14 +81,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        private Timer adConfigReadTimeout, connParamsReadTimeout;
-        private string deviceName;
-        private ushort interval;
-        private byte timeout;
-        private sbyte txPower;
-        private byte[] scanResponse;
-        private TaskCompletionSource<BleAdvertisementConfig> adConfigTask;
-        private TaskCompletionSource<BleConnectionParameters> connParamsTask;
+        private TimedTask<byte[]> readAdConfigTask, readConnParamsTask;
 
         private IForcedDataProducer batteryProducer;
         private ActiveDataProducer<byte> powerStatusProducer, chargeStatusProducer;
@@ -86,7 +98,6 @@ namespace MbientLab.MetaWear.Impl {
                 return batteryProducer;
             }
         }
-
         public IActiveDataProducer<byte> PowerStatus {
             get {
                 if (powerStatusProducer == null && powerStatus != null) {
@@ -95,7 +106,6 @@ namespace MbientLab.MetaWear.Impl {
                 return powerStatusProducer;
             }
         }
-
         public IActiveDataProducer<byte> ChargeStatus {
             get {
                 if (chargeStatusProducer == null && chargeStatus != null) {
@@ -122,50 +132,27 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(batteryState);
+            if (powerStatus != null) {
+                collection.Add(powerStatus);
+            }
+            if (chargeStatus != null) {
+                collection.Add(chargeStatus);
+            }
+        }
+
         protected override void init() {
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(DEVICE_NAME)), response => {
-                byte[] respBody = new byte[response.Length - 2];
-                Array.Copy(response, 2, respBody, 0, respBody.Length);
+            readAdConfigTask = new TimedTask<byte[]>();
+            readConnParamsTask = new TimedTask<byte[]>();
 
-                deviceName = Encoding.ASCII.GetString(respBody);
-                bridge.sendCommand(new byte[] { (byte) SETTINGS, Util.setRead(AD_INTERVAL) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(TX_POWER)), response => {
-                txPower = (sbyte)response[2];
-                bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(SCAN_RESPONSE) });
-            });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(SCAN_RESPONSE)), response => {
-                adConfigReadTimeout.Dispose();
-
-                scanResponse = new byte[response.Length - 2];
-                Array.Copy(response, 2, scanResponse, 0, scanResponse.Length);
-
-                adConfigTask.SetResult(new BleAdvertisementConfig(deviceName, interval, timeout, txPower, scanResponse));
-            });
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(DEVICE_NAME)), response => readAdConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(TX_POWER)), response => readAdConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(SCAN_RESPONSE)), response => readAdConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(AD_INTERVAL)), response => readAdConfigTask.SetResult(response));
 
             if (bridge.lookupModuleInfo(SETTINGS).revision >= CONN_PARAMS_REVISION) {
-                bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(AD_INTERVAL)), response => {
-                    interval = (ushort)(BitConverter.ToUInt16(response, 2) * AD_INTERVAL_STEP);
-                    timeout = response[4];
-
-                    bridge.sendCommand(new byte[] { (byte) SETTINGS, Util.setRead(TX_POWER) });
-                });
-                bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(CONNECTION_PARAMS)), response => {
-                    connParamsReadTimeout.Dispose();
-
-                    connParamsTask.SetResult(new BleConnectionParameters(
-                            BitConverter.ToUInt16(response, 2) * CONN_INTERVAL_STEP,
-                            BitConverter.ToUInt16(response, 4) * CONN_INTERVAL_STEP,
-                            BitConverter.ToUInt16(response, 6),
-                            (ushort)(BitConverter.ToUInt16(response, 8) * SUPERVISOR_TIMEOUT_STEP)));
-                });
-            } else {
-                bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(AD_INTERVAL)), response => {
-                    interval = BitConverter.ToUInt16(response, 2);
-                    timeout = response[4];
-
-                    bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(TX_POWER) });
-                });
+                bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(CONNECTION_PARAMS)), response => readConnParamsTask.SetResult(response));
             }
 
             if (bridge.lookupModuleInfo(SETTINGS).revision >= CHARGE_STATUS_REVISION) {
@@ -195,23 +182,47 @@ namespace MbientLab.MetaWear.Impl {
             return await bridge.queueObserverAsync(commands, disconnectDummyProducer);
         }
 
-        public Task<BleAdvertisementConfig> ReadBleAdConfigAsync() {
-            adConfigTask = new TaskCompletionSource<BleAdvertisementConfig>();
-            adConfigReadTimeout = new Timer(e => adConfigTask.SetException(new TimeoutException("Timed out reading advertising config ")), null, 4 * 250, Timeout.Infinite);
-            bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(DEVICE_NAME) });
+        public async Task<BleAdvertisementConfig> ReadBleAdConfigAsync() {
+            var response = await readAdConfigTask.Execute("Did not received device name within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(DEVICE_NAME) }));
+            var deviceName = Encoding.ASCII.GetString(response, 2, response.Length - 2);
 
-            return adConfigTask.Task;
+            ushort interval;
+            byte timeout;
+            response = await readAdConfigTask.Execute("Did not received ad interval within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(AD_INTERVAL) }));
+            if (bridge.lookupModuleInfo(SETTINGS).revision >= CONN_PARAMS_REVISION) {
+                interval = (ushort)(BitConverter.ToUInt16(response, 2) * AD_INTERVAL_STEP);
+                timeout = response[4];
+            } else {
+                interval = BitConverter.ToUInt16(response, 2);
+                timeout = response[4];
+            }
+
+            response = await readAdConfigTask.Execute("Did not received tx power within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(TX_POWER) }));
+            var txPower = (sbyte)response[2];
+
+            response = await readAdConfigTask.Execute("Did not received scan response within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(SCAN_RESPONSE) }));
+
+            var scanResponse = new byte[response.Length - 2];
+            Array.Copy(response, 2, scanResponse, 0, scanResponse.Length);
+
+            return new BleAdvertisementConfig(deviceName, interval, timeout, txPower, scanResponse);
         }
 
-        public Task<BleConnectionParameters> ReadBleConnParamsAsync() {
+        public async Task<BleConnectionParameters> ReadBleConnParamsAsync() {
             if (bridge.lookupModuleInfo(SETTINGS).revision >= CONN_PARAMS_REVISION) {
-                connParamsTask = new TaskCompletionSource<BleConnectionParameters>();
-                connParamsReadTimeout = new Timer(e => adConfigTask.SetException(new TimeoutException("Timed out reading connection parameters")), null, 250, Timeout.Infinite);
-                bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(CONNECTION_PARAMS) });
-
-                return connParamsTask.Task;
+                var response = await readConnParamsTask.Execute("Did not receive connection parameters within {0}ms", bridge.TimeForResponse,
+                    () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(CONNECTION_PARAMS) }));
+                return new BleConnectionParameters(
+                            BitConverter.ToUInt16(response, 2) * CONN_INTERVAL_STEP,
+                            BitConverter.ToUInt16(response, 4) * CONN_INTERVAL_STEP,
+                            BitConverter.ToUInt16(response, 6),
+                            (ushort)(BitConverter.ToUInt16(response, 8) * SUPERVISOR_TIMEOUT_STEP));
             } else {
-                return Task.FromException< BleConnectionParameters>(new NotSupportedException("Using btle connection parameters is not supported on this firmware version"));
+                throw new NotSupportedException("Using btle connection parameters is not supported on this firmware version");
             }
         }
 

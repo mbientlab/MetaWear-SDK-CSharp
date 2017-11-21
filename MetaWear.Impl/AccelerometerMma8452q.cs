@@ -4,10 +4,31 @@ using static MbientLab.MetaWear.Impl.Module;
 using System;
 using System.Runtime.Serialization;
 using MbientLab.MetaWear.Sensor.AccelerometerMma8452q;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
     class AccelerometerMma8452q : ModuleImplBase, IAccelerometerMma8452q {
+        internal static string createIdentifier(DataTypeBase dataType) {
+            switch (dataType.eventConfig[1]) {
+                case DATA_VALUE:
+                    return dataType.attributes.length() > 2 ? "acceleration" : string.Format("acceleration[{0}]", (dataType.attributes.offset >> 1));
+                /*
+            case ORIENTATION_VALUE:
+                return "orientation";
+            case SHAKE_STATUS:
+                return "mma8452q-shake";
+            case PULSE_STATUS:
+                return "mma8452q-tap";
+            case MOVEMENT_VALUE:
+                return "mma8452q-movement";
+                */
+                default:
+                    return null;
+            }
+        }
+
         public const byte IMPLEMENTATION = 0, PACKED_ACC_REVISION = 1;
         private const byte GLOBAL_ENABLE = 1,
             DATA_ENABLE = 2, DATA_CONFIG = 3, DATA_VALUE = 4,
@@ -49,6 +70,7 @@ namespace MbientLab.MetaWear.Impl {
         [DataMember] private Mma8452QCartesianFloatData accDataType, packedAccDataType;
 
         private IAsyncDataProducer acceleration = null, packedAcceleration = null;
+        private TimedTask<byte[]> readConfigTask;
 
         public AccelerometerMma8452q(IModuleBoardBridge bridge) : base(bridge) {
             accDataType = new Mma8452QCartesianFloatData(DATA_VALUE, 1);
@@ -63,7 +85,6 @@ namespace MbientLab.MetaWear.Impl {
                 return acceleration;
             }
         }
-
         public IAsyncDataProducer PackedAcceleration {
             get {
                 if (bridge.lookupModuleInfo(ACCELEROMETER).revision >= PACKED_ACC_REVISION) {
@@ -74,6 +95,17 @@ namespace MbientLab.MetaWear.Impl {
                 }
                 return null;
             }
+        }
+
+        internal override void aggregateDataType(ICollection<DataTypeBase> collection) {
+            collection.Add(accDataType);
+            collection.Add(packedAccDataType);
+        }
+
+        protected override void init() {
+            readConfigTask = new TimedTask<byte[]>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)ACCELEROMETER, Util.setRead(DATA_CONFIG)), 
+                response => readConfigTask.SetResult(response));
         }
 
         public void Configure(OutputDataRate odr, DataRange range) {
@@ -92,6 +124,12 @@ namespace MbientLab.MetaWear.Impl {
         }
         public void Stop() {
             bridge.sendCommand(new byte[] { (byte) ACCELEROMETER, GLOBAL_ENABLE, 0x0 });
+        }
+
+        public async Task PullConfigAsync() {
+            byte[] response = await readConfigTask.Execute("Did not receive accelerometer config within {0}ms", bridge.TimeForResponse, 
+                () => bridge.sendCommand(new byte[] { (byte)ACCELEROMETER, Util.setRead(DATA_CONFIG) }));
+            Array.Copy(response, 2, dataSettings, 0, dataSettings.Length);
         }
     }
 }
