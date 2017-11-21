@@ -11,6 +11,10 @@ using MbientLab.MetaWear.Sensor.AccelerometerBosch;
 namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(BoschCartesianFloatData))]
     [KnownType(typeof(BoschOrientationDataType))]
+    [KnownType(typeof(BoschFlatDataType))]
+    [KnownType(typeof(BoschTapDataType))]
+    [KnownType(typeof(BoschLowHighGDataType))]
+    [KnownType(typeof(BoschMotionDataType))]
     [DataContract]
     abstract class AccelerometerBosch : ModuleImplBase, IAccelerometerBosch {
         internal static string createIdentifier(DataTypeBase dataType) {
@@ -85,6 +89,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        [DataContract]
         private class BoschOrientationDataType : DataTypeBase {
             private class OrientationData : DataBase {
                 internal OrientationData(DataTypeBase datatype, IModuleBoardBridge bridge, DateTime timestamp, byte[] bytes) :
@@ -137,6 +142,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        [DataContract]
         protected class BoschFlatDataType : DataTypeBase {
             private class FlatData : DataBase {
                 internal FlatData(DataTypeBase datatype, IModuleBoardBridge bridge, DateTime timestamp, byte[] bytes) :
@@ -188,6 +194,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        [DataContract]
         private class BoschTapDataType : DataTypeBase {
             private class BoschTapData : DataBase {
                 internal BoschTapData(DataTypeBase datatype, IModuleBoardBridge bridge, DateTime timestamp, byte[] bytes) :
@@ -266,6 +273,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        [DataContract]
         private class BoschLowHighGDataType : DataTypeBase {
             private class LowHighData : DataBase {
                 internal LowHighData(DataTypeBase datatype, IModuleBoardBridge bridge, DateTime timestamp, byte[] bytes) :
@@ -365,6 +373,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
+        [DataContract]
         protected class BoschMotionDataType : DataTypeBase {
             private class AnyMotionData : DataBase {
                 internal AnyMotionData(DataTypeBase datatype, IModuleBoardBridge bridge, DateTime timestamp, byte[] bytes) :
