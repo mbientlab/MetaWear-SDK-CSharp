@@ -56,6 +56,10 @@ namespace MbientLab.MetaWear.Impl {
                     analogDataType.read(bridge);
                 }
             }
+
+            void IForcedDataProducer.Read() {
+                Read();
+            }
         }
 
         private class GpioMonitorDataProducer : AsyncDataProducer {

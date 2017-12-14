@@ -100,7 +100,7 @@ namespace MbientLab.MetaWear.Test {
                     moduleResponses = CreateModuleResponses(typeof(ISwitch), typeof(ILed), typeof(IAccelerometerMma8452q),
                         typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
-                        typeof(IMacro), typeof(ISettings));
+                        typeof(IMacro), typeof(ISettings), typeof(IDebug));
                     moduleResponses[4] = new byte[] { 0x04, 0x80, 0x01, 0x00, 0x00, 0x01 };
                     break;
                 case Model.MetaWearRG:
@@ -108,7 +108,7 @@ namespace MbientLab.MetaWear.Test {
                     moduleResponses = CreateModuleResponses(typeof(ISwitch), typeof(ILed), typeof(IAccelerometerBmi160),
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
-                        typeof(IMacro), typeof(ISettings), typeof(IGyroBmi160));
+                        typeof(IMacro), typeof(ISettings), typeof(IGyroBmi160), typeof(IDebug));
                     break;
                 case Model.MetaWearRPro:
                     modelNumber = Encoding.ASCII.GetBytes("1");
@@ -116,14 +116,14 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBmp280), 
-                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329));
+                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IDebug));
                     break;
                 case Model.MetaWearC:
                     modelNumber = Encoding.ASCII.GetBytes("2");
                     moduleResponses = CreateModuleResponses(typeof(ISwitch), typeof(ILed), typeof(IAccelerometerBmi160),
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
-                        typeof(IMacro), typeof(ISettings), typeof(IGyroBmi160));
+                        typeof(IMacro), typeof(ISettings), typeof(IGyroBmi160), typeof(IDebug));
                     break;
                 case Model.MetaWearCPro:
                     modelNumber = Encoding.ASCII.GetBytes("2");
@@ -131,7 +131,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBmp280),
-                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150));
+                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150), typeof(IDebug));
                     break;
                 case Model.MetaEnv:
                     modelNumber = Encoding.ASCII.GetBytes("2");
@@ -139,7 +139,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBme280), 
-                        typeof(IHumidityBme280), typeof(IColorTcs34725));
+                        typeof(IHumidityBme280), typeof(IColorTcs34725), typeof(IDebug));
                     break;
                 case Model.MetaDetect:
                     modelNumber = Encoding.ASCII.GetBytes("2");
@@ -147,7 +147,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IAmbientLightLtr329),
-                        typeof(IProximityTsl2671));
+                        typeof(IProximityTsl2671), typeof(IDebug));
                     break;
                 case Model.MetaHealth:
                     modelNumber = Encoding.ASCII.GetBytes("3");
@@ -160,7 +160,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBme280),
-                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IHumidityBme280));
+                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IHumidityBme280), typeof(IDebug));
                     break;
                 case Model.MetaMotionR:
                     modelNumber = Encoding.ASCII.GetBytes("5");
@@ -168,7 +168,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBmp280),
-                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch));
+                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch), typeof(IDebug));
                     break;
                 case Model.MetaMotionC:
                     modelNumber = Encoding.ASCII.GetBytes("6");
@@ -176,7 +176,7 @@ namespace MbientLab.MetaWear.Test {
                         typeof(ITemperature), typeof(IGpio), typeof(INeoPixel), typeof(IIBeacon), typeof(IHaptic),
                         typeof(IDataProcessor), typeof(ILogging), typeof(ISerialPassthrough),
                         typeof(IMacro), typeof(ISettings), typeof(IBarometerBmp280),
-                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch));
+                        typeof(IGyroBmi160), typeof(IAmbientLightLtr329), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch), typeof(IDebug));
                     break;
             }
         }

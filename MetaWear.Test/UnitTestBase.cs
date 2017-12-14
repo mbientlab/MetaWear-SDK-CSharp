@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     internal abstract class UnitTestBase {
-        protected MetaWearBoard metawear;
-        protected NunitPlatform platform;
-        private readonly InitializeResponse response;
+        internal MetaWearBoard metawear;
+        internal NunitPlatform platform;
+        internal readonly InitializeResponse response;
 
         private UnitTestBase(InitializeResponse response) {
             this.response = response;
@@ -22,7 +22,7 @@ namespace MbientLab.MetaWear.Test {
 
         [TearDown]
         public virtual void Cleanup() {
-            platform.Reset();
+            platform = new NunitPlatform(response);
         }
 
         [SetUp]

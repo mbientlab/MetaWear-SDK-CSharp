@@ -4,10 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Threading;
 using System.IO;
 using NUnit.Framework;
-using MbientLab.MetaWear.Impl;
 
 namespace MbientLab.MetaWear.Test {
     class ByteArrayComparer : EqualityComparer<byte[]> {
@@ -51,12 +49,9 @@ namespace MbientLab.MetaWear.Test {
         internal byte timerId = 0, eventId = 0, loggerId = 0, dataProcessorId = 0, macroId = 0;
         internal Dictionary<byte[], byte[]> customResponses = new Dictionary<byte[], byte[]>(new ByteArrayComparer());
 
-        private Queue<byte[]> pendingResponses = new Queue<byte[]>();
-        private Timer timer;
-
-        List<byte[]> connectCommands = new List<byte[]>();
-        List<byte[]> commands = new List<byte[]>();
-        List<GattCharWriteType> writeTypes = new List<GattCharWriteType>();
+        internal List<byte[]> connectCommands = new List<byte[]>();
+        internal List<byte[]> commands = new List<byte[]>();
+        internal List<GattCharWriteType> writeTypes = new List<GattCharWriteType>();
 
         internal Action<byte[]> charChangedHandler = null;
 
@@ -66,15 +61,10 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
-        public Action<bool> OnDisconnect { get; set; }
+        public Action OnDisconnect { get; set; }
 
         public NunitPlatform(InitializeResponse initResponse) {
             this.initResponse = initResponse;
-            timer = new Timer(e => {
-                if (pendingResponses.Count != 0) {
-                    sendMockResponse(pendingResponses.Dequeue());
-                }
-            }, null, 0, RESPONSE_DELAY);
         }
 
         public Task<bool> ServiceExistsAsync(Guid serviceUuid) {
@@ -108,59 +98,57 @@ namespace MbientLab.MetaWear.Test {
 
             return null;
         }
-        public Task WriteCharacteristicAsync(Tuple<Guid, Guid> gattChar, GattCharWriteType writeType, byte[] value) {
+        public async Task WriteCharacteristicAsync(Tuple<Guid, Guid> gattChar, GattCharWriteType writeType, byte[] value) {
             if (value[1] == 0x80) {
                 connectCommands.Add(value);
                 if (initResponse.moduleResponses.TryGetValue(value[0], out var response)) {
                     if (delayModuleDiscovery) {
-                        pendingResponses.Enqueue(response);
-                    } else {
-                        charChangedHandler(response);
+                        await Task.Delay(RESPONSE_DELAY);    
                     }
+                    charChangedHandler(response);
                 }
             } else {
                 if (value[0] == 0xb && value[1] == 0x84) {
                     connectCommands.Add(value);
-
-                    pendingResponses.Enqueue(new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 });
-                } else {
+                    await Task.Delay(RESPONSE_DELAY);
+                    charChangedHandler(new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 });
+                } else { 
                     commands.Add(value);
                     writeTypes.Add(writeType);
 
+                    byte[] response = null;
                     if (customResponses.ContainsKey(value)) {
-                        pendingResponses.Enqueue(customResponses[value]);
+                        response = customResponses[value];
                     } else if (loggerId < maxLoggers && value[0] == 0xb && value[1] == 0x2) {
-                        byte[] response = { value[0], 0x2, loggerId };
+                        response = new byte[] { value[0], 0x2, loggerId };
                         loggerId++;
-
-                        pendingResponses.Enqueue(response);
                     } else if (dataProcessorId < maxProcessors && value[0] == 0x9 && value[1] == 0x2) {
-                        byte[] response = { value[0], 0x2, dataProcessorId };
+                        response = new byte[] { value[0], 0x2, dataProcessorId };
                         dataProcessorId++;
-
-                        pendingResponses.Enqueue(response);
                     } else if (eventId < maxEvents && value[0] == 0xa && value[1] == 0x3) {
-                        byte[] response = { value[0], 0x2, eventId };
+                        response = new byte[] { value[0], 0x2, eventId };
                         eventId++;
-
-                        pendingResponses.Enqueue(response);
                     } else if (timerId < maxTimers && value[0] == 0xc && value[1] == 0x2) {
-                        byte[] response = { value[0], 0x2, timerId };
+                        response = new byte[] { value[0], 0x2, timerId };
                         timerId++;
-
-                        pendingResponses.Enqueue(response);
                     } else if (value[0] == 0xf && value[1] == 0x2) {
-                        byte[] response = { value[0], 0x2, macroId };
+                        response = new byte[] { value[0], 0x2, macroId };
                         macroId++;
-
-                        pendingResponses.Enqueue(response);
                     } else if (value[0] == 0xb && value[1] == 0x85) {
                         sendMockResponse(new byte[] { 0x0b, 0x85, 0x9e, 0x01, 0x00, 0x00 });
-                    }
-                }                
-            }
+                    } else if (value[0] == 0xfe && (value[1] == 0x1 || value[1] == 0x6 || value[1] == 0x2)) {
+                        await Task.Delay(1000);
 
-            return Task.FromResult(true);
+                        nDisconnects++;
+                        OnDisconnect();
+                    }
+
+                    if (response != null) {
+                        await Task.Delay(RESPONSE_DELAY);
+                        charChangedHandler(response);
+                    }
+                }
+            }
         }
 
         public byte[][] GetConnectCommands() {
@@ -194,12 +182,6 @@ namespace MbientLab.MetaWear.Test {
             }
             charChangedHandler = handler;
             return Task.CompletedTask;
-        }
-
-        public Task RemoteDisconnectAsync() {
-            nDisconnects++;
-            OnDisconnect(false);
-            return Task.FromResult(true);
         }
 
         public void LogWarn(string tag, string message, Exception e) {
@@ -237,17 +219,14 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
-        public void Reset() {
-            pendingResponses.Clear();
-            commands.Clear();
-            writeTypes.Clear();
-            
-            eventId = 0;
-            loggerId = 0;
-            dataProcessorId = 0;
-            macroId = 0;
-            timerId = 0;
-            nDisconnects = 0;
+        public Task DiscoverServicesAsync() {
+            return Task.FromResult(true);
+        }
+
+        public Task DisconnectAsync() {
+            nDisconnects++;
+            OnDisconnect();
+            return Task.FromResult(true);
         }
     }
 }

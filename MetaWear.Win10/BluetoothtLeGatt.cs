@@ -12,16 +12,12 @@ namespace MbientLab.MetaWear.Win10 {
     internal class BluetoothLeGatt : IBluetoothLeGatt {
         private GattCharacteristic notifyChar = null;
         private BluetoothLEDevice device;
-        private Action<byte[]> charChangedHandler;
-        private TaskCompletionSource<bool> dcTaskSource;
+        private Action<byte[]> charChangedHandler; 
         private Dictionary<Guid, GattCharacteristic> characteristics = new Dictionary<Guid, GattCharacteristic>();
 
-        public ulong BluetoothAddress { get {
-                return device.BluetoothAddress;
-            }
-        }
+        public ulong BluetoothAddress => device.BluetoothAddress;
 
-        public Action<bool> OnDisconnect { get; set ; }
+        public Action OnDisconnect { get; set ; }
 
         public BluetoothLeGatt(BluetoothLEDevice device) {
             this.device = device;
@@ -29,17 +25,12 @@ namespace MbientLab.MetaWear.Win10 {
                 switch (sender.ConnectionStatus) {
                     case BluetoothConnectionStatus.Disconnected:
                         if (notifyChar != null) {
-                            notifyChar.ValueChanged -= notifyHandler;
+                            notifyChar.ValueChanged -= NotifyHandler;
                             notifyChar = null;
                         }
                         characteristics.Clear();
 
-                        if (dcTaskSource != null) {
-                            dcTaskSource.SetResult(true);
-                            OnDisconnect(false);
-                        } else {
-                            OnDisconnect(true);
-                        }
+                        OnDisconnect();
                         break;
                     case BluetoothConnectionStatus.Connected:
                         break;
@@ -47,25 +38,32 @@ namespace MbientLab.MetaWear.Win10 {
             };
         }
 
-        private async Task DiscoverCharacteristicsAsync() {
-            if (characteristics.Count == 0) {
-                var servicesResult = await device.GetGattServicesAsync();
+        public async Task DiscoverServicesAsync() {
+            characteristics.Clear();
+
+            int retry = 3;
+            while (retry >= 0) {
+                var servicesResult = await device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
                 foreach (var service in servicesResult.Services) {
-                    var charsresult = await service.GetCharacteristicsAsync();
+                    var charsresult = await service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
                     foreach (var characteristic in charsresult.Characteristics) {
                         characteristics.Add(characteristic.Uuid, characteristic);
                     }
                 }
 
                 if (characteristics.Count == 0) {
-                    throw new InvalidOperationException("No GATT characteristics were discovered");
+                    retry--;
+                } else {
+                    retry = -1;
                 }
+            }
+
+            if (characteristics.Count == 0) {
+                throw new InvalidOperationException("No GATT characteristics were discovered");
             }
         }
 
         public async Task EnableNotificationsAsync(Tuple<Guid, Guid> gattChar, Action<byte[]> handler) {
-            await DiscoverCharacteristicsAsync();
-
             charChangedHandler = handler;
 
             if (notifyChar == null) {
@@ -75,7 +73,7 @@ namespace MbientLab.MetaWear.Win10 {
                         throw new InvalidOperationException(string.Format("Failed to enable notifications (status = {0:d})", (int)result));
                     }
                     notifyChar = notify;
-                    notifyChar.ValueChanged += notifyHandler;
+                    notifyChar.ValueChanged += NotifyHandler;
                 } else {
                     throw new InvalidOperationException(string.Format("GATT characteristic '{0}' does not exist", gattChar.Item2));
                 }
@@ -83,8 +81,6 @@ namespace MbientLab.MetaWear.Win10 {
         }
 
         public async Task<byte[]> ReadCharacteristicAsync(Tuple<Guid, Guid> gattChar) {
-            await DiscoverCharacteristicsAsync();
-
             if (characteristics.TryGetValue(gattChar.Item2, out var characteristic)) {
                 var result = await characteristic.ReadValueAsync();
 
@@ -97,19 +93,12 @@ namespace MbientLab.MetaWear.Win10 {
             }
         }
 
-        public Task RemoteDisconnectAsync() {
-            dcTaskSource = new TaskCompletionSource<bool>();
-            return dcTaskSource.Task;
-        }
-
         public async Task<bool> ServiceExistsAsync(Guid serviceGuid) {
             var result = await device.GetGattServicesForUuidAsync(serviceGuid, BluetoothCacheMode.Uncached);
             return result.Services.Count != 0;
         }
 
         public async Task WriteCharacteristicAsync(Tuple<Guid, Guid> gattChar, GattCharWriteType writeType, byte[] value) {
-            await DiscoverCharacteristicsAsync();
-
             if (characteristics.TryGetValue(gattChar.Item2, out var characteristic)) {
                 var result = await characteristic.WriteValueAsync(value.AsBuffer(), 
                     writeType == GattCharWriteType.WRITE_WITHOUT_RESPONSE ? GattWriteOption.WriteWithoutResponse : GattWriteOption.WriteWithResponse);
@@ -122,8 +111,12 @@ namespace MbientLab.MetaWear.Win10 {
             }
         }
 
-        private void notifyHandler(GattCharacteristic gattCharChanged, GattValueChangedEventArgs obj) {
+        private void NotifyHandler(GattCharacteristic gattCharChanged, GattValueChangedEventArgs obj) {
             charChangedHandler(obj.CharacteristicValue.ToArray());
+        }
+
+        public Task DisconnectAsync() {
+            throw new NotSupportedException("Use 'IDebug.DisconnectAsync()' to close the connection");
         }
     }
 }

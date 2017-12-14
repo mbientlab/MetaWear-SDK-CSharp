@@ -1,26 +1,31 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Impl {
     class TimedTask<T> {
         private TaskCompletionSource<T> taskSource = null;
+        private CancellationTokenSource cts = null;
 
         internal TimedTask() { }
 
         internal async Task<T> Execute(string format, int timeout, Action action) {
             taskSource = new TaskCompletionSource<T>();
+            cts = new CancellationTokenSource();
 
             action();
             if (timeout != 0) {
                 // use task timeout pattern from https://stackoverflow.com/a/11191070
-                if (await Task.WhenAny(taskSource.Task, Task.Delay(timeout)) == taskSource.Task) {
-                    return await taskSource.Task;
+                var delay = Task.Delay(timeout, cts.Token);
+                if (await Task.WhenAny(taskSource.Task, delay) != taskSource.Task) {
+                    if (!delay.IsCanceled) {
+                        taskSource.SetException(new TimeoutException(string.Format(format, timeout)));
+                    }
                 } else {
-                    throw new TimeoutException(string.Format(format, timeout));
+                    cts.Cancel();
                 }
-            } else {
-                return await taskSource.Task;
             }
+            return await taskSource.Task;
         }
 
         internal void SetResult(T result) {

@@ -350,30 +350,68 @@ namespace MbientLab.MetaWear.Impl {
             bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(MODE)), response => readConfigTask.SetResult(response));
         }
 
-        public void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps) {
+        public void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps,
+                object[] accExtra = null, object[] gyroExtra = null) {
             bridge.sendCommand(new byte[] {(byte) SENSOR_FUSION, MODE, (byte) ((byte) mode + 1),(byte) ((byte) ar | (((byte) gr + 1) << 4)) });
 
             var accelerometer = bridge.GetModule<IAccelerometerBosch>();
             var gyro = bridge.GetModule<IGyroBmi160>();
             var magnetometer = bridge.GetModule<IMagnetometerBmm150>();
 
+            Action<Sensor.AccelerometerBmi160.OutputDataRate> configAcc = (odr) => {
+                if (accelerometer is IAccelerometerBmi160) {
+                    var casted = accelerometer as IAccelerometerBmi160;
+
+                    Func<Sensor.AccelerometerBosch.DataRange, Action<Sensor.AccelerometerBmi160.FilterMode>> configure = 
+                            range => filter => casted.Configure(odr: odr, range: range, filter: filter);
+                    var partial = configure((Sensor.AccelerometerBosch.DataRange) ar);
+                    
+                    if (accExtra != null) {
+                        foreach(Object it in accExtra) {
+                            if (it is Sensor.AccelerometerBmi160.FilterMode) {
+                                partial((Sensor.AccelerometerBmi160.FilterMode) it);
+                                break;
+                            }
+                        }
+                    } else {
+                        partial(Sensor.AccelerometerBmi160.FilterMode.Normal);
+                    }
+                }
+            };
+            Action configGyro = () => {
+                Func<Sensor.GyroBmi160.DataRange, Action<Sensor.GyroBmi160.FilterMode>> configure = 
+                        range => filter => gyro.Configure(odr: Sensor.GyroBmi160.OutputDataRate._100Hz, range: range, filter: filter);
+                var partial = configure((Sensor.GyroBmi160.DataRange) gr);
+
+                if (gyroExtra != null) {
+                    foreach (Object it in gyroExtra) {
+                        if (it is Sensor.GyroBmi160.FilterMode) {
+                            partial((Sensor.GyroBmi160.FilterMode)it);
+                            break;
+                        }
+                    }
+                } else {
+                    partial(Sensor.GyroBmi160.FilterMode.Normal);
+                }
+            };
+
             this.mode = mode;
             switch (mode) {
                 case Mode.Ndof:
-                    accelerometer.Configure(odr: 100f, range: AccelerometerBosch.RANGES[(int)ar]);
-                    gyro.Configure(odr: Sensor.GyroBmi160.OutputDataRate._100Hz, range: (Sensor.GyroBmi160.DataRange) gr);
+                    configAcc(Sensor.AccelerometerBmi160.OutputDataRate._100Hz);
+                    configGyro();
                     magnetometer.Configure(odr: Sensor.MagnetometerBmm150.OutputDataRate._25Hz);
                     break;
                 case Mode.ImuPlus:
-                    accelerometer.Configure(odr: 100f, range: AccelerometerBosch.RANGES[(int)ar]);
-                    gyro.Configure(odr: Sensor.GyroBmi160.OutputDataRate._100Hz, range: (Sensor.GyroBmi160.DataRange)gr);
+                    configAcc(Sensor.AccelerometerBmi160.OutputDataRate._100Hz);
+                    configGyro();
                     break;
                 case Mode.Compass:
-                    accelerometer.Configure(odr: 25f, range: AccelerometerBosch.RANGES[(int)ar]);
+                    configAcc(Sensor.AccelerometerBmi160.OutputDataRate._25Hz);
                     magnetometer.Configure(odr: Sensor.MagnetometerBmm150.OutputDataRate._25Hz);
                     break;
                 case Mode.M4g:
-                    accelerometer.Configure(odr: 50f, range: AccelerometerBosch.RANGES[(int)ar]);
+                    configAcc(Sensor.AccelerometerBmi160.OutputDataRate._50Hz);
                     magnetometer.Configure(odr: Sensor.MagnetometerBmm150.OutputDataRate._25Hz);
                     break;
             }

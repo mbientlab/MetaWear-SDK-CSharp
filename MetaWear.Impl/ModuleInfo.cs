@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Specialized;
 using System.Runtime.Serialization;
 
 namespace MbientLab.MetaWear.Impl {
@@ -6,6 +8,8 @@ namespace MbientLab.MetaWear.Impl {
     class ModuleInfo {
         [DataMember] readonly internal byte id, implementation, revision;
         [DataMember] readonly internal byte[] extra;
+
+        internal bool Present => implementation != 0xff && revision != 0xff;
 
         public ModuleInfo(byte[] response) {
             id = response[0];
@@ -27,8 +31,19 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        internal bool Present() {
-            return implementation != 0xff && revision != 0xff;
+        internal IDictionary Dump() {
+            IDictionary output = new OrderedDictionary();
+
+            if (Present) {
+                output.Add("implementation", implementation);
+                output.Add("revision", revision);
+
+                if (extra.Length > 0) {
+                    output.Add("extra", Util.arrayToHexString(extra));
+                }
+            }
+
+            return output;
         }
     }
 }

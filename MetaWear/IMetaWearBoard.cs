@@ -1,4 +1,6 @@
-﻿using System;
+﻿using MbientLab.MetaWear.Core;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -58,18 +60,31 @@ namespace MbientLab.MetaWear {
         /// </summary>
         Action OnUnexpectedDisconnect { get; set; }
         /// <summary>
-        /// How long the API should wait (in milliseconds) before a required response is received.  
-        /// <para>This setting only affects creating timers, loggers, data processors, and macros.</para>
+        /// How long the API should wait (in milliseconds) before a required response is received
         /// </summary>
         int TimeForResponse { set; }
+        /// <summary>
+        /// True if the board is currently connected to the host device
+        /// </summary>
+        bool IsConnected { get; }
 
         /// <summary>
-        /// Initialize the API's internal state and establish a connection to the board
+        /// Connect to the remote device and perpares the internal API state to communicate with the modules.
         /// </summary>
-        /// <param name="timeout">How long to wait (in milliseconds) for initialization to completed</param>
-        /// <returns>Null</returns>
-        /// <exception cref="TimeoutException">Initialization does not complete within the allotted time</exception>
-        Task InitializeAsync(int timeout = 10000);
+        /// <param name="timeout">How long to wait (in milliseconds) for initialization to complete</param>
+        /// <returns>Null once the SDK is initialized</returns>
+        /// <exception cref="TimeoutException">If initialization takes too long, timeout can be increased with the <see cref="TimeForResponse"/> property</exception>
+        /// <exception cref="InvalidOperationException">If the host device failed to establish a connection</exception>
+        Task InitializeAsync();
+#if NETSTANDARD2_0
+        /// <summary>
+        /// Disconnects from the MetaWear device
+        /// <para>This method is only available for the .NET Standard build.  Developers building a .NET console or UWP app must use 
+        /// <see cref="IDebug.DisconnectAsync"/> to terminate the connection</para>
+        /// </summary>
+        /// <returns>Null when the connection is closed</returns>
+        Task DisconnectAsync();
+#endif
 
         /// <summary>
         /// Reads supported characteristics from the Device Information service
@@ -81,6 +96,7 @@ namespace MbientLab.MetaWear {
         /// </summary>
         /// <returns>Value of the characteristic</returns>
         Task<byte> ReadBatteryLevelAsync();
+
         /// <summary>
         /// Retrieves a reference to the requested module if supported.
         /// <para>The API must be initialized before calling this function and it cannot be used if the board 
@@ -89,16 +105,24 @@ namespace MbientLab.MetaWear {
         /// <typeparam name="T">Interface derived from <see cref="IModule"/> to lookup</typeparam>
         /// <returns>Reference to the requested module, null if the board is not connected, module not supported, or board is in MetaBoot mode</returns>
         T GetModule<T>() where T : class, IModule;
+        /// <summary>
+        /// Queries all info registers.  If the task times out, you can run the task again using the partially
+        /// completed result from the previous execution so the function does not need to query all modules again.
+        /// </summary>
+        /// <param name="partial">Result of previously queried module info results, set to null to query all modules</param>
+        /// <returns>Module information contained in a string indexed dictionary</returns>
+        /// <exception cref="TaskTimeoutException">If the module responses take too long, partial result is included with this exception</exception>
+        Task<IDictionary> GetModuleInfoAsync(IDictionary partial);
 
         /// <summary>
         /// Serialize object state and write the state to the local disk
         /// </summary>
-        /// <returns>Null</returns>
+        /// <returns>Null when the object state is saved</returns>
         Task SerializeAsync();
         /// <summary>
         /// Restore serialized state from the local disk if available
         /// </summary>
-        /// <returns>Null</returns>
+        /// <returns>Null when the object state is restored</returns>
         Task DeserializeAsync();
 
         /// <summary>

@@ -41,13 +41,13 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(DataTypeBase))]
     [DataContract]
     class DataProcessor : ModuleImplBase, IDataProcessor {
-        internal static String createIdentifier(DataTypeBase dataType, DataProcessor dataprocessor, Version firmware) {
+        internal static String createIdentifier(DataTypeBase dataType, DataProcessor dataprocessor, Version firmware, byte revision) {
             byte register = Util.clearRead(dataType.eventConfig[1]);
             switch (register) {
                 case NOTIFY:
                 case STATE:
                     var processor = dataprocessor.lookupProcessor(dataType.eventConfig[2]);
-                    DataProcessorConfig config = DataProcessorConfig.from(firmware, processor.Item2.config);
+                    DataProcessorConfig config = DataProcessorConfig.from(firmware, revision, processor.Item2.config);
 
                     return config.CreateIdentifier(register == STATE, dataType.eventConfig[2]);
                 default:
@@ -61,7 +61,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         internal const byte TYPE_ACCOUNTER = 0x11, TYPE_PACKER = 0x10;
-        internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2;
+        internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2, EXPANDED_DELAY = 2;
         internal const byte ADD = 2,
                 NOTIFY = 3,
                 STATE = 4,

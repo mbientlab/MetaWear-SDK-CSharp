@@ -17,7 +17,11 @@ namespace MbientLab.MetaWear.Test {
                 foreach (var mode in Enum.GetValues(typeof(Mode))) {
                     foreach (var acc in Enum.GetValues(typeof(AccRange))) {
                         foreach (var gyr in Enum.GetValues(typeof(GyroRange))) {
-                            testCases.Add(new TestCaseData(mode, acc, gyr));
+                            foreach (var accFilter in Enum.GetValues(typeof(Sensor.AccelerometerBmi160.FilterMode))) {
+                                foreach (var gyroFilter in Enum.GetValues(typeof(FilterMode))) {
+                                    testCases.Add(new TestCaseData(mode, acc, gyr, accFilter, gyroFilter));
+                                }
+                            }
                         }
                     }
                 }
@@ -169,15 +173,15 @@ namespace MbientLab.MetaWear.Test {
         };
 
         [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "ConfigureTestCases")]
-        public void Configure(Mode mode, AccRange acc, GyroRange gyr) {
+        public void Configure(Mode mode, AccRange acc, GyroRange gyr, Sensor.AccelerometerBmi160.FilterMode accFilter, FilterMode gyroFilter) {
             byte[][] expected = null;
-            byte[] configGyro100Hz = new byte[] {0x13, 0x03, (byte) (0x20 | GyroBmi160Test.ODR_BITMASK[(int) OutputDataRate._100Hz]), GyroBmi160Test.RANGE_BITMASK[(int) gyr]};
+            byte[] configGyro100Hz = new byte[] {0x13, 0x03, (byte) (((int) gyroFilter << 4 ) | GyroBmi160Test.ODR_BITMASK[(int) OutputDataRate._100Hz]), GyroBmi160Test.RANGE_BITMASK[(int) gyr]};
 
             switch (mode) {
                 case Mode.Ndof:
                     expected = new byte[][] {
                         new byte[] { 0x19, 0x02, 0x01, CONFIG_MASKS[(int)acc][(int)gyr] },
-                        new byte[] { 0x03, 0x03, 0x28, BMI160_ACC_RANGE_BITMASK[(int)acc] },
+                        new byte[] { 0x03, 0x03, 0x8, BMI160_ACC_RANGE_BITMASK[(int)acc] },
                         configGyro100Hz,
                         new byte[] { 0x15, 0x04, 0x04, 0x0e},
                         new byte[] { 0x15, 0x03, 0x6}
@@ -186,14 +190,14 @@ namespace MbientLab.MetaWear.Test {
                 case Mode.ImuPlus:
                     expected = new byte[][] {
                         new byte[] { 0x19, 0x02, 0x02, CONFIG_MASKS[(int)acc][(int)gyr] },
-                        new byte[] { 0x03, 0x03, 0x28, BMI160_ACC_RANGE_BITMASK[(int)acc] },
+                        new byte[] { 0x03, 0x03, 0x8, BMI160_ACC_RANGE_BITMASK[(int)acc] },
                         configGyro100Hz
                     };
                     break;
                 case Mode.Compass:
                     expected = new byte[][] {
                         new byte[] { 0x19, 0x02, 0x03, CONFIG_MASKS[(int)acc][(int)gyr] },
-                        new byte[] { 0x03, 0x03, 0x26, BMI160_ACC_RANGE_BITMASK[(int)acc]},
+                        new byte[] { 0x03, 0x03, 0x6, BMI160_ACC_RANGE_BITMASK[(int)acc]},
                         new byte[] { 0x15, 0x04, 0x04, 0x0e},
                         new byte[] { 0x15, 0x03, 0x6}
                     };
@@ -201,13 +205,15 @@ namespace MbientLab.MetaWear.Test {
                 case Mode.M4g:
                     expected = new byte[][] {
                         new byte[] { 0x19, 0x02, 0x04, CONFIG_MASKS[(int)acc][(int)gyr] },
-                        new byte[] { 0x03, 0x03, 0x27, BMI160_ACC_RANGE_BITMASK[(int)acc] },
+                        new byte[] { 0x03, 0x03, 0x7, BMI160_ACC_RANGE_BITMASK[(int)acc] },
                         new byte[] { 0x15, 0x04, 0x04, 0x0e },
                         new byte[] { 0x15, 0x03, 0x6 }
                     };
                     break;
             }
-            sensorFusion.Configure(mode, acc, gyr);
+            expected[1][2] |= (byte)((int) accFilter << 4);
+
+            sensorFusion.Configure(mode, acc, gyr, accExtra: new Object[] { accFilter }, gyroExtra: new object[] { gyroFilter });
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }

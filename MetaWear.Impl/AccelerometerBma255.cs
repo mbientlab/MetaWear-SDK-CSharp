@@ -27,46 +27,48 @@ namespace MbientLab.MetaWear.Impl {
                 Write((byte) (holdTime ?? FlatHoldTime._512ms), theta ?? 5.6889f);
             }
         }
-        protected class Bma255MotionDataProducer : BoschMotionDataProducer {
+        private class Bma255MotionDataProducer : BoschMotionDataProducer {
             private byte[] InitialMotionConfig => new byte[] { 0x00, 0x14, 0x14 };
 
             internal Bma255MotionDataProducer(DataTypeBase dataTypeBase, IModuleBoardBridge bridge) :
                     base(dataTypeBase, bridge) {
             }
 
-            public override void ConfigureAny(int? Count = null, float? Threshold = null) {
-                ConfigureAnyInner(InitialMotionConfig, Count, Threshold);
+            public override void ConfigureAny(int? count = null, float? threshold = null) {
+                ConfigureAnyInner(InitialMotionConfig, count, threshold);
             }
 
-            public override void ConfigureNo(int? Duration = null, float? Threshold = null) {
+            public override void ConfigureNo(int? duration = null, float? threshold = null) {
                 byte[] config = InitialMotionConfig;
-                if (Duration.HasValue) {
+                if (duration.HasValue) {
                     config[0] &= 0x3;
 
-                    if (Duration >= 1000 && Duration <= 16000) {
-                        config[0] |= (byte)(((Duration - 1000) / 1000) << 2);
-                    } else if (Duration >= 20000 && Duration <= 80000) {
-                        config[0] |= (byte) ((((byte)(Duration - 20000) / 4000) << 2) | 0x40);
-                    } else if (Duration >= 88000 && Duration <= 336000) {
-                        config[0] |= (byte) ((((byte)(Duration - 88000) / 8000) << 2) | 0x80);
+                    if (duration >= 1000 && duration <= 16000) {
+                        config[0] |= (byte)(((duration - 1000) / 1000) << 2);
+                    } else if (duration >= 20000 && duration <= 80000) {
+                        config[0] |= (byte) ((((byte)(duration - 20000) / 4000) << 2) | 0x40);
+                    } else if (duration >= 88000 && duration <= 336000) {
+                        config[0] |= (byte) ((((byte)(duration - 88000) / 8000) << 2) | 0x80);
                     }
                 }
 
-                if (Threshold.HasValue) {
-                    config[2] = (byte)(Threshold / BOSCH_NO_MOTION_THS_STEPS[(accelerometer as AccelerometerBma255).DataScaleIndex]);
+                if (threshold.HasValue) {
+                    config[2] = (byte)(threshold / BOSCH_NO_MOTION_THS_STEPS[(accelerometer as AccelerometerBma255).DataScaleIndex]);
                 }
 
+                mask = 0x78;
                 bridge.sendCommand(ACCELEROMETER, MOTION_CONFIG, config);
             }
 
-            public override void ConfigureSlow(byte? Count = null, float? Threshold = null) {
-                ConfigureSlowInner(InitialMotionConfig, Count, Threshold);
+            public override void ConfigureSlow(byte? count = null, float? threshold = null) {
+                ConfigureSlowInner(InitialMotionConfig, count, threshold);
             }
         }
 
         [DataMember] private readonly byte[] accDataConfig = new byte[] { 0x0b, 0x03 };
 
         private IBma255FlatDataProducer flatDetector;
+        private IMotionDataProducer motionProducer;
         private TimedTask<byte[]> readConfigTask;
 
         protected override float DataScale {
@@ -104,7 +106,9 @@ namespace MbientLab.MetaWear.Impl {
 
         protected override byte MaxOrientHys => 0x7;
 
-        IBma255FlatDataProducer IAccelerometerBma255.Flat {
+        IBma255FlatDataProducer IAccelerometerBma255.Flat => Flat as IBma255FlatDataProducer;
+
+        public override IFlatDataProducer Flat {
             get {
                 if (flatDetector == null) {
                     flatDetector = new Bma255FlatDataProducer(flatDataType, bridge);
@@ -112,13 +116,19 @@ namespace MbientLab.MetaWear.Impl {
                 return flatDetector;
             }
         }
-        public override IFlatDataProducer Flat => Flat;
 
         protected override byte[] InitialLowHighGConfig => new byte[] { 0x09, 0x30, 0x81, 0x0f, 0xc0 };
 
         protected override float LowHighGDurationStep => 2.0f;
 
-        public override IMotionDataProducer Motion => throw new NotImplementedException();
+        public override IMotionDataProducer Motion {
+            get {
+                if (motionProducer == null) {
+                    motionProducer = new Bma255MotionDataProducer(motionDataType, bridge);
+                }
+                return motionProducer;
+            }
+        }
 
         protected override void init() {
             base.init();
@@ -131,7 +141,7 @@ namespace MbientLab.MetaWear.Impl {
         public AccelerometerBma255(IModuleBoardBridge bridge) : base(bridge) {
         }
 
-        public void Configure(OutputDataRate odr, DataRange range) {
+        public void Configure(OutputDataRate odr = OutputDataRate._125Hz, DataRange range = DataRange._2g) {
             accDataConfig[0] &= 0xe0;
             accDataConfig[0] |= (byte) (odr + 8);
 

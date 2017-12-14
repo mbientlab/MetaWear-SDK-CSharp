@@ -616,4 +616,30 @@ namespace MbientLab.MetaWear.Test {
             Assert.That(actual, Is.EqualTo(expected));
         }
     }
+
+    [TestFixture]
+    class TestDelay : DataProcessorTest {
+        [Test]
+        public async Task CreateAccHistory() {
+            byte[][] expected = new byte[][] {
+                    new byte[] { 0x09, 0x02, 0x03, 0x04, 0xff, 0xa0, 0x0a, 0x05, 0x10 },
+                    new byte[] { 0x09, 0x02, 0x09, 0x03, 0x00, 0xa0, 0x01, 0x02, 0x00, 0x00 },
+                    new byte[] { 0x0a, 0x02, 0x03, 0x08, 0xff, 0x09, 0x04, 0x03 },
+                    new byte[] { 0x0a, 0x03, 0x01, 0x20, 0x00 }
+            };
+
+            var accelerometer = metawear.GetModule<IAccelerometerBmi160>();
+
+            await accelerometer.Acceleration.AddRouteAsync(source =>
+                source.Delay(16).Limit(Passthrough.Count, 0).Name("history")
+            );
+
+            var dataprocessor = metawear.GetModule<IDataProcessor>();
+            await accelerometer.LowAndHighG.AddRouteAsync(source =>
+                source.React(token => dataprocessor.Edit<IPassthroughEditor>("history").Set(32))
+            );
+
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+    }
 }

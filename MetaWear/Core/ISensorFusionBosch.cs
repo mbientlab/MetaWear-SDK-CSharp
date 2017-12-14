@@ -1,4 +1,5 @@
 ﻿using MbientLab.MetaWear.Data;
+using MbientLab.MetaWear.Core.SensorFusionBosch;
 using System;
 using System.Threading.Tasks;
 
@@ -192,9 +193,10 @@ namespace MbientLab.MetaWear.Core {
         /// <param name="mode">Sensor fusion mode</param>
         /// <param name="ar">Accelerometer data range</param>
         /// <param name="gr">Gyro data range</param>
-        void Configure(SensorFusionBosch.Mode mode = SensorFusionBosch.Mode.Ndof,
-            SensorFusionBosch.AccRange ar = SensorFusionBosch.AccRange._16g,
-            SensorFusionBosch.GyroRange gr = SensorFusionBosch.GyroRange._2000dps);
+        /// <param name="accExtra">Extra configuration settings for the accelerometer</param>
+        /// <param name="accGyro">Extra configuration settings for the gyro</param>
+        void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps,
+            object[] accExtra = null, object[] gyroExtra = null);
 
         /// <summary>
         /// Start the algorithm

@@ -400,7 +400,7 @@ namespace MbientLab.MetaWear.Impl {
 
                         while (chain.Count() != 0) {
                             var current = chain.Pop();
-                            var next = type.transform(DataProcessorConfig.from(bridge.getFirmware(), current.config));
+                            var next = type.transform(DataProcessorConfig.from(bridge.getFirmware(), bridge.lookupModuleInfo(DATA_PROCESSOR).revision, current.config));
 
                             next.Item1.eventConfig[2] = current.id;
                             if (next.Item2 != null) {

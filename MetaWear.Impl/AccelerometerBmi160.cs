@@ -35,7 +35,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
         internal new static string createIdentifier(DataTypeBase dataType) {
-            switch (dataType.eventConfig[1]) {
+            switch (Util.clearRead(dataType.eventConfig[1])) {
                 case STEP_DETECTOR_INTERRUPT:
                     return "step-detector";
                 case STEP_COUNTER_DATA:
@@ -79,12 +79,12 @@ namespace MbientLab.MetaWear.Impl {
 
             }
 
-            public override void Configure(ushort? Hold = null, float? Theta = null) {
-                Configure((FlatHoldTime) Util.closestIndexUShort(HOLD_TIMES, Hold ?? 640), Theta);
+            public override void Configure(ushort? hold = null, float? theta = null) {
+                Configure((FlatHoldTime) Util.closestIndexUShort(HOLD_TIMES, hold ?? 640), theta);
             }
 
-            public void Configure(FlatHoldTime? Hold = null, float? Theta = null) {
-                Write((byte) (Hold ?? FlatHoldTime._640ms), Theta ?? 5.6889f);
+            public void Configure(FlatHoldTime? hold = null, float? theta = null) {
+                Write((byte) (hold ?? FlatHoldTime._640ms), theta ?? 5.6889f);
             }
         }
 
@@ -95,55 +95,57 @@ namespace MbientLab.MetaWear.Impl {
                     base(dataTypeBase, bridge) {
             }
 
-            public override void ConfigureAny(int? Count = null, float? Threshold = null) {
+            public override void ConfigureAny(int? count = null, float? threshold = null) {
                 byte[] config = InitialMotionConfig;
                 config[3] &= (~0x2) & 0xff;
 
-                ConfigureAnyInner(config, Count, Threshold);
+                ConfigureAnyInner(config, count, threshold);
             }
 
-            public override void ConfigureNo(int? Duration = null, float? Threshold = null) {
+            public override void ConfigureNo(int? duration = null, float? threshold = null) {
                 byte[] config = InitialMotionConfig;
                 config[3] |= 0x1;
 
-                if (Duration.HasValue) {
+                if (duration.HasValue) {
                     config[0] &= 0x3;
 
-                    if (Duration >= 1280 && Duration <= 20480) {
-                        config[0] |= (byte) (((byte)(Duration / 1280f - 1)) << 2);
-                    } else if (Duration >= 25600 && Duration <= 102400) {
-                        config[0] |= (byte) ((((byte)(Duration / 5120f - 5)) << 2) | 0x40);
-                    } else if (Duration >= 112640 && Duration <= 430080) {
-                        config[0] |= (byte) ((((byte)(Duration / 10240f - 11)) << 2) | 0x80);
+                    if (duration >= 1280 && duration <= 20480) {
+                        config[0] |= (byte) (((byte)(duration / 1280f - 1)) << 2);
+                    } else if (duration >= 25600 && duration <= 102400) {
+                        config[0] |= (byte) ((((byte)(duration / 5120f - 5)) << 2) | 0x40);
+                    } else if (duration >= 112640 && duration <= 430080) {
+                        config[0] |= (byte) ((((byte)(duration / 10240f - 11)) << 2) | 0x80);
                     }
                 }
 
-                if (Threshold.HasValue) {
-                    config[2] = (byte)(Threshold / BOSCH_NO_MOTION_THS_STEPS[(accelerometer as AccelerometerBmi160).DataScaleIndex]);
+                if (threshold.HasValue) {
+                    config[2] = (byte)(threshold / BOSCH_NO_MOTION_THS_STEPS[(accelerometer as AccelerometerBmi160).DataScaleIndex]);
                 }
 
+                mask = 0x38;
                 bridge.sendCommand(ACCELEROMETER, MOTION_CONFIG, config);
             }
 
-            public void ConfigureSignificant(SkipTime? Skip = null, ProofTime? Proof = null) {
+            public void ConfigureSignificant(SkipTime? skip = null, ProofTime? proof = null) {
                 byte[] config = InitialMotionConfig;
                 config[3] |= 0x2;
 
-                if (Skip.HasValue) {
-                    config[3] |= (byte) ((int) Skip << 2);
+                if (skip.HasValue) {
+                    config[3] |= (byte) ((int) skip << 2);
                 }
-                if (Proof.HasValue) {
-                    config[3] |= (byte)((int) Proof << 4);
+                if (proof.HasValue) {
+                    config[3] |= (byte)((int) proof << 4);
                 }
 
+                mask = 0x7;
                 bridge.sendCommand(ACCELEROMETER, MOTION_CONFIG, config);
             }
 
-            public override void ConfigureSlow(byte? Count = null, float? Threshold = null) {
+            public override void ConfigureSlow(byte? count = null, float? threshold = null) {
                 byte[] config = InitialMotionConfig;
                 config[3] &= (~0x1) & 0xff;
 
-                ConfigureSlowInner(config, Count, Threshold);
+                ConfigureSlowInner(config, count, threshold);
             }
         }
 
@@ -172,7 +174,8 @@ namespace MbientLab.MetaWear.Impl {
                 return stepDetector;
             }
         }
-        IBmi160FlatDataProducer IAccelerometerBmi160.Flat {
+        IBmi160FlatDataProducer IAccelerometerBmi160.Flat => Flat as IBmi160FlatDataProducer;
+        public override IFlatDataProducer Flat {
             get {
                 if (flatDetector == null) {
                     flatDetector = new Bmi160FlatDataProducer(flatDataType, bridge);
@@ -180,9 +183,9 @@ namespace MbientLab.MetaWear.Impl {
                 return flatDetector;
             }
         }
-        public override IFlatDataProducer Flat => Flat;
 
-        IBmi160MotionDataProducer IAccelerometerBmi160.Motion {
+        IBmi160MotionDataProducer IAccelerometerBmi160.Motion => Motion as IBmi160MotionDataProducer;
+        public override IMotionDataProducer Motion {
             get {
                 if (motion == null) {
                     motion = new Bmi160MotionDataProducer(motionDataType, bridge);
@@ -190,7 +193,6 @@ namespace MbientLab.MetaWear.Impl {
                 return motion;
             }
         }
-        public override IMotionDataProducer Motion => Motion;
 
         protected override float DataScale {
             get {
@@ -251,13 +253,8 @@ namespace MbientLab.MetaWear.Impl {
                 response => readConfigTask.SetResult(response));
         }
 
-        public void Configure(OutputDataRate odr, DataRange range) {
-            accDataConfig[0] &= 0xf0;
-            accDataConfig[0] |= (byte)(odr + 1);
-
-            accDataConfig[0] &= 0xf;
-            accDataConfig[0] |= (byte) ((FREQUENCIES[(int)odr] < 12.5f) ? 0x80 : 0x20);
-
+        public void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._2g, FilterMode filter = FilterMode.Normal) {
+            accDataConfig[0] = (byte) (((int) odr + 1) | ((FREQUENCIES[(int)odr] < 12.5f) ? 0x80 : (int)filter << 4));
             accDataConfig[1] &= 0xf0;
             accDataConfig[1] |= RANGE_BIT_MASKS[(int) range];
 

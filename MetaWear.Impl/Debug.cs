@@ -6,27 +6,39 @@ using System.Runtime.Serialization;
 namespace MbientLab.MetaWear.Impl {
     [DataContract]
     class Debug : ModuleImplBase, IDebug {
+        internal TaskCompletionSource<bool> dcTaskSource;
+
         public Debug(IModuleBoardBridge bridge) : base(bridge) {
         }
 
+        protected override void init() {
+            dcTaskSource = null;
+        }
+
+        public override void disconnected() {
+            if (dcTaskSource != null) {
+                dcTaskSource.TrySetResult(true);
+                dcTaskSource = null;
+            }
+        }
+
+        private Task SetupDisconnect(byte[] cmd) {
+            dcTaskSource = new TaskCompletionSource<bool>();
+
+            bridge.sendCommand(cmd);
+            if (bridge.GetModule<Event>()?.ActiveDataType != null) {
+                dcTaskSource.SetCanceled();
+            }
+
+            return dcTaskSource.Task;
+        }
+
         public Task DisconnectAsync() {
-            TaskCompletionSource<bool> taskSource = new TaskCompletionSource<bool>();
-            taskSource.SetCanceled();
-
-            Event eventModule = bridge.GetModule<Event>();
-
-            bridge.sendCommand(new byte[] { (byte) DEBUG, 0x6 });
-            return eventModule.ActiveDataType != null ? taskSource.Task : bridge.remoteDisconnect();
+            return SetupDisconnect(new byte[] { (byte)DEBUG, 0x6 });
         }
 
         public Task JumpToBootloaderAsync() {
-            TaskCompletionSource<bool> taskSource = new TaskCompletionSource<bool>();
-            taskSource.SetCanceled();
-
-            Event eventModule = bridge.GetModule<Event>();
-
-            bridge.sendCommand(new byte[] { (byte)DEBUG, 0x2 });
-            return eventModule.ActiveDataType != null ? taskSource.Task : bridge.remoteDisconnect();
+            return SetupDisconnect(new byte[] { (byte)DEBUG, 0x2 });
         }
 
         public void ResetAfterGc() {
@@ -34,13 +46,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public Task ResetAsync() {
-            TaskCompletionSource<bool> taskSource = new TaskCompletionSource<bool>();
-            taskSource.SetCanceled();
-
-            Event eventModule = bridge.GetModule<Event>();
-
-            bridge.sendCommand(new byte[] { (byte)DEBUG, 0x1 });
-            return eventModule.ActiveDataType != null ? taskSource.Task : bridge.remoteDisconnect();
+            return SetupDisconnect(new byte[] { (byte)DEBUG, 0x1 });
         }
     }
 }

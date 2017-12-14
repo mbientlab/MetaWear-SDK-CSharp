@@ -1,4 +1,5 @@
 ﻿using MbientLab.MetaWear.Sensor;
+using MbientLab.MetaWear.Sensor.AccelerometerBmi160;
 using NUnit.Framework;
 using System.Threading.Tasks;
 
@@ -87,6 +88,50 @@ namespace MbientLab.MetaWear.Test {
                 platform.sendMockResponse(new byte[] { 0x03, 0x19, 0x01 });
 
                 Assert.That(actual, Is.EqualTo(0x1));
+            }
+        }
+
+        [TestFixture]
+        class TestSignificantMotion : TestBase {
+            [Test]
+            public void Start() {
+                byte[] expected = new byte[] { 0x03, 0x09, 0x07, 0x00 };
+
+                accelerometer.Motion.ConfigureSignificant();
+                accelerometer.Motion.Start();
+
+                Assert.That(platform.GetLastCommand(), Is.EqualTo(expected));
+            }
+
+            [Test]
+            public void Stop() {
+                byte[] expected = new byte[] { 0x03, 0x09, 0x00, 0x7 };
+
+                accelerometer.Motion.ConfigureSignificant();
+                accelerometer.Motion.Stop();
+
+                Assert.That(platform.GetLastCommand(), Is.EqualTo(expected));
+            }
+
+            [Test]
+            public void Configure() {
+                byte[][] expected = {
+                    new byte[] {0x03, 0x0a, 0x00, 0x14, 0x14, 0x36}
+                };
+
+                accelerometer.Motion.ConfigureSignificant(proof: ProofTime._1s, skip: SkipTime._1_5s);
+
+                Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+            }
+
+            [Test]
+            public async Task HandleData() {
+                byte? actual = null;
+
+                await accelerometer.Motion.AddRouteAsync(source => source.Stream(data => actual = data.Bytes[0]));
+                platform.sendMockResponse(new byte[] { 0x03, 0x0b, 0x01 });
+
+                Assert.That(actual.Value, Is.EqualTo(0x1));
             }
         }
     }

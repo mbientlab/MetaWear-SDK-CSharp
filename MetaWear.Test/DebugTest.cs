@@ -1,9 +1,6 @@
 ﻿using MbientLab.MetaWear.Core;
+using MbientLab.MetaWear.Peripheral;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -11,7 +8,7 @@ namespace MbientLab.MetaWear.Test {
     class DebugTest : UnitTestBase {
         private IDebug debug;
 
-        public DebugTest() : base(typeof(IDebug)) { }
+        public DebugTest() : base(typeof(IDebug), typeof(ISwitch)) { }
 
         [SetUp]
         public async override Task SetUp() {
@@ -27,6 +24,18 @@ namespace MbientLab.MetaWear.Test {
             await debug.ResetAsync();
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
             Assert.That(platform.nDisconnects, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task ResetInRoute() {
+            byte[][] expected = {
+                new byte[] { 0xa, 0x2, 0x1, 0x1, 0xff, 0xfe, 0x1, 0x00 },
+                new byte[] { 0xa, 0x3 },
+            };
+
+            await metawear.GetModule<ISwitch>().State.AddRouteAsync(source => source.React(token => debug.ResetAsync()));
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+            Assert.That(platform.nDisconnects, Is.EqualTo(0));
         }
 
         [Test]

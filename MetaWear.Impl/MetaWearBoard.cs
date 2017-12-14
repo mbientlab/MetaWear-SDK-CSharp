@@ -12,6 +12,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Linq;
+using System.Collections;
+using System.Collections.Specialized;
 
 namespace MbientLab.MetaWear.Impl {
     /// <summary>
@@ -232,44 +234,41 @@ namespace MbientLab.MetaWear.Impl {
                 this.metawear = metawear;
             }
             
-            public Task remoteDisconnect() {
-                return metawear.gatt.RemoteDisconnectAsync();
-            }
-
             public ModuleInfo lookupModuleInfo(Module module) {
                 return metawear.persistent.attributes.moduleInfo.TryGetValue(module, out ModuleInfo result) ? result : null;
             }
 
-            public void sendCommand(byte[] command) {
-                Event eventModule = GetModule<Event>();
-
-                if (eventModule.ActiveDataType != null) {
+            public async Task sendCommand(byte[] command) {
+                if (GetModule<Event>() is Event eventModule && eventModule.ActiveDataType != null) {
                     eventModule.convertToEventCommand(command);
                 } else {
-                    metawear.gatt.WriteCharacteristicAsync(
-                        COMMAND_GATT_CHAR, 
-                        command[0] == (byte) MACRO ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE, 
-                        command
-                    );
-
-                    Macro macro = GetModule<IMacro>() as Macro;
-                    if (macro != null && macro.isRecording) {
-                        macro.commands.Enqueue(command);
+                    try {
+                        if (GetModule<IMacro>() is Macro macro && macro.isRecording) {
+                            macro.commands.Enqueue(command);
+                        }
+                        await metawear.gatt.WriteCharacteristicAsync(
+                            COMMAND_GATT_CHAR,
+                            command[0] == (byte)MACRO ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE,
+                            command
+                        );
+                        
+                    } catch (Exception e) {
+                        metawear.io.LogWarn("metawear", "Failed to send command: " + Util.arrayToHexString(command), e);
                     }
                 }
             }
 
-            public void sendCommand(Module module, byte register, byte[] bytes) {
+            public async Task sendCommand(Module module, byte register, byte[] bytes) {
                 byte[] command = new byte[bytes.Length + 2];
 
                 command[0] = (byte) module;
                 command[1] = register;
                 Array.Copy(bytes, 0, command, 2, bytes.Length);
 
-                sendCommand(command);
+                await sendCommand(command);
             }
 
-            public void sendCommand(Module module, byte register, byte id, byte[] bytes) {
+            public async Task sendCommand(Module module, byte register, byte id, byte[] bytes) {
                 byte[] command = new byte[bytes.Length + 3];
 
                 command[0] = (byte)module;
@@ -277,25 +276,25 @@ namespace MbientLab.MetaWear.Impl {
                 command[2] = id;
                 Array.Copy(bytes, 0, command, 3, bytes.Length);
 
-                sendCommand(command);
+                await sendCommand(command);
             }
-            public void sendCommand(byte[] command, byte dest, IDataToken input) {
+            public async Task sendCommand(byte[] command, byte dest, IDataToken input) {
                 metawear.persistent.modules.TryGetValue(typeof(Event).FullName, out var module);
                 Event eventModule = module as Event;
 
                 DataTypeBase producer = (DataTypeBase)input;
                 eventModule.feedbackParams= Tuple.Create(producer.attributes.length(), producer.attributes.offset, dest);
-                sendCommand(command);
+                await sendCommand(command);
                 eventModule.feedbackParams= null;
             }
-            public void sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters) {
+            public async Task sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters) {
                 byte[] command = new byte[parameters.Length + 3];
                 Array.Copy(parameters, 0, command, 3, parameters.Length);
                 command[0] = (byte) module;
                 command[1] = register;
                 command[2] = id;
 
-                sendCommand(command, dest, input);
+                await sendCommand(command, dest, input);
             }
 
             public Task<IRoute> queueRouteBuilder(Action<IRouteComponent> builder, DataTypeBase source) {
@@ -413,7 +412,6 @@ namespace MbientLab.MetaWear.Impl {
         private IBluetoothLeGatt gatt;
         private ILibraryIO io;
         private int timeForResponse;
-        private TimedTask<bool> initTask;
 
         private HashSet<Tuple<byte, byte>> dataIdHeaders= new HashSet<Tuple<byte, byte>>();
         private Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>> dataHandlers= new Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>>();
@@ -421,7 +419,7 @@ namespace MbientLab.MetaWear.Impl {
 
         public Action OnUnexpectedDisconnect { get; set; }
         public string MacAddress { get => gatt.BluetoothAddress.ToString("X").Insert(2, ":").Insert(5, ":").Insert(8, ":").Insert(11, ":").Insert(14, ":"); }
-        public bool InMetaBootMode { get; set; }
+        public bool InMetaBootMode { get; private set; }
         public Model? Model {
             get {
                 if (InMetaBootMode || persistent.attributes.moduleInfo.Count == 0 || persistent.attributes.modelNumber == null) {
@@ -432,23 +430,23 @@ namespace MbientLab.MetaWear.Impl {
                     return MetaWear.Model.MetaWearR;
                 }
                 if (persistent.attributes.modelNumber == "1") {
-                    if (!persistent.attributes.moduleInfo[AMBIENT_LIGHT].Present() || !persistent.attributes.moduleInfo[BAROMETER].Present()) {
+                    if (!persistent.attributes.moduleInfo[AMBIENT_LIGHT].Present || !persistent.attributes.moduleInfo[BAROMETER].Present) {
                         return MetaWear.Model.MetaWearRG;
                     }
                     return MetaWear.Model.MetaWearRPro;
                 }
                 if (persistent.attributes.modelNumber == "2") {
-                    if (persistent.attributes.moduleInfo[MAGNETOMETER].Present()) {
+                    if (persistent.attributes.moduleInfo[MAGNETOMETER].Present) {
                         return MetaWear.Model.MetaWearCPro;
                     }
                     switch(persistent.attributes.moduleInfo[ACCELEROMETER].implementation) {
                         case AccelerometerBmi160.IMPLEMENTATION:
                             return MetaWear.Model.MetaWearC;
                         case AccelerometerBma255.IMPLEMENTATION:
-                            if (persistent.attributes.moduleInfo[PROXIMITY].Present()) {
+                            if (persistent.attributes.moduleInfo[PROXIMITY].Present) {
                                 return MetaWear.Model.MetaDetect;
                             }
-                            if (persistent.attributes.moduleInfo[HUMIDITY].Present()) {
+                            if (persistent.attributes.moduleInfo[HUMIDITY].Present) {
                                 return MetaWear.Model.MetaEnv;
                             }
                             return null;
@@ -469,22 +467,27 @@ namespace MbientLab.MetaWear.Impl {
                 return null;
             }
         }
-        public int TimeForResponse { set => timeForResponse = Math.Min(value, 1000); }
+        public int TimeForResponse { set => timeForResponse = Math.Max(0, Math.Min(value, 1000)); }
+        public bool IsConnected { get; private set; }
 
         public MetaWearBoard(IBluetoothLeGatt gatt, ILibraryIO io) {
             this.gatt = gatt;
             this.io = io;
             InMetaBootMode = false;
-            timeForResponse = 250;
-            initTask = new TimedTask<bool>();
+            timeForResponse = 250;            
 
             bridge = new ModuleBoardBridge(this);
-            gatt.OnDisconnect = unexpected => {
+            gatt.OnDisconnect = () => {
+                IsConnected = false;
+
+                var debug = GetModule<IDebug>() as Debug;
+                var remoteDc = debug != null && debug.dcTaskSource != null;
+
                 foreach (var it in persistent.modules.Values) {
                     (it as ModuleImplBase).disconnected();
                 }
 
-                if (unexpected && OnUnexpectedDisconnect != null) {
+                if (!remoteDc && OnUnexpectedDisconnect != null) {
                     OnUnexpectedDisconnect();
                 }
             };
@@ -512,6 +515,42 @@ namespace MbientLab.MetaWear.Impl {
                 return null;
             }
             return persistent.modules.TryGetValue(typeof(T).FullName, out IModule module) ? (T)module : null;
+        }
+
+        public async Task<IDictionary> GetModuleInfoAsync(IDictionary partial) {
+            IDictionary output = new SortedDictionary<String, IDictionary>();
+
+            var ignore = new HashSet<Module>();
+            if (partial != null) {
+                foreach(var k in partial.Keys) {
+                    output.Add(k, partial[k]);
+                }
+
+                foreach (Module module in Enum.GetValues(typeof(Module))) {
+                    if (partial.Contains(Modules.FriendlyNames[module])) {
+                        ignore.Add(module);
+                    }
+                }
+            }
+
+            Exception error = null;
+            OrderedDictionary info = null;
+            try {
+                info = await DiscoverModulesAsync(ignore);
+            } catch (TaskTimeoutException e) {
+                error = e.InnerException;
+                info = e.PartialResult as OrderedDictionary;
+            } finally {
+                foreach (var k in info.Keys) {
+                    output.Add(Modules.FriendlyNames[(Module)k], (info[k] as ModuleInfo).Dump());
+                }
+            }
+
+            if (error != null) {
+                throw new TaskTimeoutException(error, output);
+            }
+
+            return output;
         }
 
         public async Task SerializeAsync() {
@@ -631,7 +670,13 @@ namespace MbientLab.MetaWear.Impl {
             persistent.activeObservers.Clear();
         }
 
-        public async Task InitializeAsync(int timeout = 10000) {
+#if NETSTANDARD2_0
+        public async Task DisconnectAsync() {
+            await gatt.DisconnectAsync();
+        }
+#endif
+
+        public async Task InitializeAsync() {
             if (persistent.attributes == null) {
                 Stream ins = null;
                 try {
@@ -653,89 +698,102 @@ namespace MbientLab.MetaWear.Impl {
                 }
             }
 
-            await initTask.Execute("Failed to initialize board within {0}ms", timeout,
-                async () => {
-                    if (persistent.attributes.hardwareRevision == null) {
-                        persistent.attributes.hardwareRevision = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.HARDWARE_REVISION));
-                    }
-                    if (persistent.attributes.modelNumber == null) {
-                        persistent.attributes.modelNumber = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.MODEL_NUMBER));
-                    }
+            Exception error = null;
+            try {
+                await gatt.DiscoverServicesAsync();
 
-                    Exception error = null;
-                    try {
-                        var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
-                        await gatt.EnableNotificationsAsync(NOTIFY_CHAR, value => {
-                            Tuple<byte, byte> header = Tuple.Create(value[0], value[1]);
-                            Tuple<byte, byte, byte> dataHandlerKey = Tuple.Create(value[0], value[1], dataIdHeaders.Contains(header) ? value[2] : DataTypeBase.NO_ID);
+                if (persistent.attributes.hardwareRevision == null) {
+                    persistent.attributes.hardwareRevision = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.HARDWARE_REVISION));
+                }
+                if (persistent.attributes.modelNumber == null) {
+                    persistent.attributes.modelNumber = Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.MODEL_NUMBER));
+                }
 
-                            if (dataHandlers.TryGetValue(dataHandlerKey, out var handlers)) {
-                                foreach (var handler in handlers) {
-                                    handler(value);
-                                }
-                            } else if (registerResponseHandlers.TryGetValue(header, out var handler)) {
-                                handler(value);
-                            } else if (value[1] == READ_INFO_REGISTER) {
-                                readModuleInfoTaskSource.SetResult(new ModuleInfo(value));
-                            }
-                        });
-                        InMetaBootMode = false;
+                var firmware = new Version(Encoding.ASCII.GetString(await gatt.ReadCharacteristicAsync(DeviceInformationService.FIRMWARE_REVISION)));
+                await gatt.EnableNotificationsAsync(NOTIFY_CHAR, value => {
+                    Tuple<byte, byte> header = Tuple.Create(value[0], value[1]);
+                    Tuple<byte, byte, byte> dataHandlerKey = Tuple.Create(value[0], value[1], dataIdHeaders.Contains(header) ? value[2] : DataTypeBase.NO_ID);
 
-                        await DiscoverModulesAsync(persistent.attributes.firmware == null || persistent.attributes.firmware.CompareTo(firmware) != 0);
-                        persistent.attributes.firmware = firmware;
-
-                        if (persistent.modules.TryGetValue(typeof(ILogging).FullName, out var logging)) {
-                            await (logging as Logging).QueryTimeAsync();
+                    if (dataHandlers.TryGetValue(dataHandlerKey, out var handlers)) {
+                        foreach (var handler in handlers) {
+                            handler(value);
                         }
-
-                        using (MemoryStream outs = new MemoryStream()) {
-                            new DataContractSerializer(typeof(BoardAttributes)).WriteObject(outs, persistent.attributes);
-                            await io.LocalSaveAsync(BOARD_ATTR, outs.ToArray());
-                        }
-                    } catch (Exception e) {
-                        InMetaBootMode = await gatt.ServiceExistsAsync(Constants.METABOOT_SERVICE);
-                        if (!InMetaBootMode) {
-                            error = e;
-                        }
-                    } finally {
-                        if (error != null) {
-                            initTask.SetError(error);
-                        } else {
-                            initTask.SetResult(true);
-                        }
+                    } else if (registerResponseHandlers.TryGetValue(header, out var handler)) {
+                        handler(value);
+                    } else if (value[1] == READ_INFO_REGISTER) {
+                        readInfoRegisterTask.SetResult(new ModuleInfo(value));
                     }
                 });
-        }
+                InMetaBootMode = false;
 
-        private TaskCompletionSource<ModuleInfo> readModuleInfoTaskSource;
-        private async Task<ModuleInfo> ReadModuleInfoAsync(Module module) {
-            readModuleInfoTaskSource = new TaskCompletionSource<ModuleInfo>();
-            await gatt.WriteCharacteristicAsync(COMMAND_GATT_CHAR, GattCharWriteType.WRITE_WITHOUT_RESPONSE, new byte[] { (byte)module, READ_INFO_REGISTER });
+                if (persistent.attributes.firmware == null || persistent.attributes.firmware.CompareTo(firmware) != 0) {
+                    persistent.id = 0;
+                    persistent.activeObservers.Clear();
+                    persistent.activeRoutes.Clear();
+                    persistent.modules.Clear();
+                    persistent.attributes.moduleInfo.Clear();
 
-            return await readModuleInfoTaskSource.Task;
-        }
-        private async Task DiscoverModulesAsync(bool refresh) {
-            if (refresh) {
-                persistent.id = 0;
-                persistent.activeObservers.Clear();
-                persistent.activeRoutes.Clear();
-                persistent.modules.Clear();
-                persistent.attributes.moduleInfo.Clear();
-
-                registerResponseHandlers.Clear();
-                dataIdHeaders.Clear();
-                dataHandlers.Clear();
-            }
-            foreach (Module module in Enum.GetValues(typeof(Module))) {
-                if (refresh || !persistent.attributes.moduleInfo.ContainsKey(module)) {
-                    var info = await ReadModuleInfoAsync(module);
-                    persistent.attributes.moduleInfo.Add(module, info);
-                    instantiateModule(module, info);
+                    registerResponseHandlers.Clear();
+                    dataIdHeaders.Clear();
+                    dataHandlers.Clear();
                 }
+                persistent.attributes.firmware = firmware;
+
+                var info = await DiscoverModulesAsync(persistent.attributes.moduleInfo.Keys);
+                foreach (var it in info.Keys) {
+                    persistent.attributes.moduleInfo.Add((Module)it, (ModuleInfo)info[it]);
+                    instantiateModule((Module)it, (ModuleInfo)info[it]);
+                }
+
+                if (persistent.modules.TryGetValue(typeof(ILogging).FullName, out var logging)) {
+                    await (logging as Logging).QueryTimeAsync();
+                }
+
+                using (MemoryStream outs = new MemoryStream()) {
+                    new DataContractSerializer(typeof(BoardAttributes)).WriteObject(outs, persistent.attributes);
+                    await io.LocalSaveAsync(BOARD_ATTR, outs.ToArray());
+                }
+            } catch (TaskTimeoutException e) {
+                error = e.InnerException;
+                var info = e.PartialResult as OrderedDictionary;
+                foreach (var it in info.Keys) {
+                    persistent.attributes.moduleInfo.Add((Module)it, (ModuleInfo)info[it]);
+                    instantiateModule((Module)it, (ModuleInfo)info[it]);
+                }
+            } catch (Exception e) {
+                InMetaBootMode = await gatt.ServiceExistsAsync(Constants.METABOOT_SERVICE);
+                if (!InMetaBootMode) {
+                    error = e;
+                }
+            } finally {
+                if (error != null) {
+                    throw error;
+                }
+                IsConnected = true;
             }
+        }
+
+        private TimedTask<ModuleInfo> readInfoRegisterTask;
+        private async Task<OrderedDictionary> DiscoverModulesAsync(ICollection<Module> ignore) {
+            var output = new OrderedDictionary();
+            readInfoRegisterTask = new TimedTask<ModuleInfo>();
+
+            try {
+                foreach (Module module in Enum.GetValues(typeof(Module))) {
+                    if (!ignore.Contains(module)) {
+                        var info = await readInfoRegisterTask.Execute("Did not receive module info (" + module.ToString() + ") within {0}ms", bridge.TimeForResponse,
+                            () => bridge.sendCommand(new byte[] { (byte)module, READ_INFO_REGISTER }));
+                        output.Add(module, info);
+                    }
+                }
+            } catch (TimeoutException e) {
+                throw new TaskTimeoutException(e, output);
+            }
+
+            return output;
         }
         private void instantiateModule(Module module, ModuleInfo info) {
-            if (info.Present()) {
+            if (info.Present) {
                 switch (module) {
                     case SWITCH:
                         persistent.modules.Add(typeof(ISwitch).FullName, new Switch(bridge));

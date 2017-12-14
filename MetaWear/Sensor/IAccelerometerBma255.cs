@@ -34,9 +34,9 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the flat detection algorithm.
             /// </summary>
-            /// <param name="Hold">Delay for which the flat value must remain stable for an interrupt</param>
-            /// <param name="Theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
-            void Configure(FlatHoldTime? Hold = null, float? Theta = null);
+            /// <param name="hold">Delay for which the flat value must remain stable for an interrupt</param>
+            /// <param name="theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
+            void Configure(FlatHoldTime? hold = null, float? theta = null);
         }
     }
 

@@ -21,18 +21,16 @@ namespace MbientLab.MetaWear.Impl {
             switch (dataType.eventConfig[1]) {
                 case DATA_INTERRUPT:
                     return dataType.attributes.length() > 2 ? "acceleration" : string.Format("acceleration[{0}]", (dataType.attributes.offset >> 1));
-            case ORIENT_INTERRUPT:
-                return "orientation";
-                /*
-        case FLAT_INTERRUPT:
-            return "bosch-flat";
-        case LOW_HIGH_G_INTERRUPT:
-            return "bosch-low-high";
-        case MOTION_INTERRUPT:
-            return "bosch-motion";
-        case TAP_INTERRUPT:
-            return "bosch-tap";
-            */
+                case ORIENT_INTERRUPT:
+                    return "orientation";                
+                case FLAT_INTERRUPT:
+                    return "bosch-flat";
+                case LOW_HIGH_G_INTERRUPT:
+                    return "bosch-low-high";
+                case MOTION_INTERRUPT:
+                    return "bosch-motion";
+                case TAP_INTERRUPT:
+                    return "bosch-tap";
                 default:
                     return null;
             }
@@ -102,7 +100,7 @@ namespace MbientLab.MetaWear.Impl {
                     var type = typeof(T);
 
                     if (type == typeof(SensorOrientation)) {
-                        return (T)Convert.ChangeType(((bytes[0] & 0x6) >> 1) + 4 * ((bytes[0] & 0x8) >> 3), type);
+                        return (T)Convert.ChangeType((SensorOrientation) (((bytes[0] & 0x6) >> 1) + 4 * ((bytes[0] & 0x8) >> 3)), type);
                     }
 
                     return base.Value<T>();
@@ -182,7 +180,7 @@ namespace MbientLab.MetaWear.Impl {
             internal BoschFlatDataProducer(DataTypeBase dataTypeBase, IModuleBoardBridge bridge) : base(FLAT_INTERRUPT_ENABLE, 0x1, dataTypeBase, bridge) {
             }
 
-            public abstract void Configure(ushort? Hold = null, float? Theta = null);
+            public abstract void Configure(ushort? hold = null, float? theta = null);
 
             internal void Write(byte hold, float theta) {
                 byte[] flatConfig = new byte[] { 0x08, 0x11 };
@@ -212,9 +210,8 @@ namespace MbientLab.MetaWear.Impl {
                         } else if ((bytes[0] & 0x2) == 0x2) {
                             tap = TapType.Single;
                         }
-                        Tap casted = new Tap(tap, (bytes[0] & 0x20) == 0x20 ? Sign.Negative : Sign.Positive);
-
-                        return (T)Convert.ChangeType(tap, type);
+                        
+                        return (T)Convert.ChangeType(new Tap(tap, (bytes[0] & 0x20) == 0x20 ? Sign.Negative : Sign.Positive), type);
                     }
 
                     return base.Value<T>();
@@ -240,36 +237,41 @@ namespace MbientLab.MetaWear.Impl {
             internal BoschTapDataProducer(DataTypeBase dataTypeBase, IModuleBoardBridge bridge) : base(TAP_INTERRUPT_ENABLE, 0x0, dataTypeBase, bridge) {
             }
 
-            public void Configure(bool EnableSingle = false, bool EnableDouble = false, float? Threshold = null, 
-                    TapQuietTime? Quiet = null, TapShockTime? Shock = null, DoubleTapWindow? Window = null) {
+            public void Configure(bool enableSingle = false, bool enableDouble = false, float? threshold = null, 
+                    TapQuietTime? quiet = null, TapShockTime? shock = null, DoubleTapWindow? window = null) {
                 byte[] tapConfig = new byte[] { 0x04, 0x0a };
 
-                if (Quiet.HasValue) {
-                    tapConfig[0] |= (byte) ((int) Quiet << 7);
+                if (quiet.HasValue) {
+                    tapConfig[0] |= (byte) ((int) quiet << 7);
                 }
 
-                if (Shock.HasValue) {
-                    tapConfig[0] |= (byte) ((int) Shock << 6);
+                if (shock.HasValue) {
+                    tapConfig[0] |= (byte) ((int) shock << 6);
                 }
 
-                if (Window.HasValue) {
-                    tapConfig[0] |= (byte) Window;
+                if (window.HasValue) {
+                    tapConfig[0] |= (byte) window;
                 }
 
-                if (Threshold.HasValue) {
+                if (threshold.HasValue) {
                     tapConfig[1] &= 0xe0;
-                    tapConfig[1] |= Math.Min((byte) 15, (byte) (Threshold / BOSCH_TAP_THS_STEPS[(bridge.GetModule<IAccelerometerBosch>() as AccelerometerBosch).DataScaleIndex]));
+                    tapConfig[1] |= Math.Min((byte) 15, (byte) (threshold / BOSCH_TAP_THS_STEPS[(bridge.GetModule<IAccelerometerBosch>() as AccelerometerBosch).DataScaleIndex]));
                 }
 
                 mask = 0;
-                if (EnableSingle) {
+                if (enableSingle) {
                     mask |= 0x2;
                 }
-                if (EnableDouble) {
+                if (enableDouble) {
                     mask |= 0x1;
                 }
 
                 bridge.sendCommand(ACCELEROMETER, TAP_CONFIG, tapConfig);
+            }
+
+            public override void Stop() {
+                mask = 0x3;
+                base.Stop();
             }
         }
 
@@ -291,8 +293,8 @@ namespace MbientLab.MetaWear.Impl {
                         };
                         byte highFirst = (byte)((bytes[0] & 0x1c) >> 2);
                         LowHighG casted = new LowHighG(
-                                (bytes[0] & 0x2) == 0x2,
                                 (bytes[0] & 0x1) == 0x1,
+                                (bytes[0] & 0x2) == 0x2,
                                 CheckHighG(0, highFirst),
                                 CheckHighG(1, highFirst),
                                 CheckHighG(2, highFirst),
@@ -326,50 +328,55 @@ namespace MbientLab.MetaWear.Impl {
                     base(LOW_HIGH_G_INTERRUPT_ENABLE, 0x0, dataTypeBase, bridge) {
             }
 
-            public void Configure(bool EnableLowG = false, ushort? LowDuration = null, float? LowThreshold = null, float? LowHysteresis = null, LowGMode? Mode = null, 
-                    bool EnableHighGx = false, bool EnableHighGy = false, bool EnableHighGz = false, ushort? HighDuration = null, float? HighThreshold = null, float? HighHysteresis = null) {
+            public void Configure(bool enableLowG = false, ushort? lowDuration = null, float? lowThreshold = null, float? lowHysteresis = null, LowGMode? mode = null, 
+                    bool enableHighGx = false, bool enableHighGy = false, bool enableHighGz = false, ushort? highDuration = null, float? highThreshold = null, float? highHysteresis = null) {
                 var accelerometer = bridge.GetModule<IAccelerometerBosch>() as AccelerometerBosch;
                 byte[] config = accelerometer.InitialLowHighGConfig;
 
                 mask = 0;
-                if (EnableLowG) {
-                    mask |= 0x80;
+                if (enableLowG) {
+                    mask |= 0x08;
                 }
-                if (EnableHighGx) {
+                if (enableHighGx) {
                     mask |= 0x01;
                 }
-                if (EnableHighGy) {
+                if (enableHighGy) {
                     mask |= 0x02;
                 }
-                if (EnableHighGz) {
+                if (enableHighGz) {
                     mask |= 0x04;
                 }
 
-                if (LowDuration.HasValue) {
-                    config[0] = (byte)((LowDuration / accelerometer.LowHighGDurationStep) - 1);
+                if (lowDuration.HasValue) {
+                    config[0] = (byte)((lowDuration / accelerometer.LowHighGDurationStep) - 1);
                 }
-                if (LowThreshold.HasValue) {
-                    config[1] = (byte)(LowThreshold / LOW_THRESHOLD_STEP);
+                if (lowThreshold.HasValue) {
+                    config[1] = (byte)(lowThreshold / LOW_THRESHOLD_STEP);
                 }
-                if (HighHysteresis.HasValue) {
-                    config[2] |= (byte) (((int)(HighHysteresis / BOSCH_HIGH_HYSTERESIS_STEPS[accelerometer.DataScaleIndex]) & 0x3) << 6);
+                if (highHysteresis.HasValue) {
+                    config[2] |= (byte) (((int)(highHysteresis / BOSCH_HIGH_HYSTERESIS_STEPS[accelerometer.DataScaleIndex]) & 0x3) << 6);
                 }
-                if (Mode.HasValue) {
+                if (mode.HasValue) {
                     config[2] &= 0xfb;
-                    config[2] |= (byte) ((byte) Mode << 2);
+                    config[2] |= (byte) ((byte) mode << 2);
                 }
-                if (LowHysteresis.HasValue) {
+                if (lowHysteresis.HasValue) {
                     config[2] &= 0xfc;
-                    config[2] |= (byte) ((byte)(LowHysteresis / LOW_HYSTERESIS_STEP) & 0x3);
+                    config[2] |= (byte) ((byte)(lowHysteresis / LOW_HYSTERESIS_STEP) & 0x3);
                 }
-                if (HighDuration.HasValue) {
-                    config[3] = (byte)((HighDuration / accelerometer.LowHighGDurationStep) - 1);
+                if (highDuration.HasValue) {
+                    config[3] = (byte)((highDuration / accelerometer.LowHighGDurationStep) - 1);
                 }
-                if (HighThreshold.HasValue) {
-                    config[4] = (byte)(HighThreshold / BOSCH_HIGH_THRESHOLD_STEPS[accelerometer.DataScaleIndex]);
+                if (highThreshold.HasValue) {
+                    config[4] = (byte)(highThreshold / BOSCH_HIGH_THRESHOLD_STEPS[accelerometer.DataScaleIndex]);
                 }
 
                 bridge.sendCommand(ACCELEROMETER, LOW_HIGH_G_CONFIG, config);
+            }
+
+            public override void Stop() {
+                mask = 0xf;
+                base.Stop();
             }
         }
 
@@ -438,6 +445,7 @@ namespace MbientLab.MetaWear.Impl {
                     config[1] = (byte)(threshold / BOSCH_ANY_MOTION_THS_STEPS[accelerometer.DataScaleIndex]);
                 }
 
+                mask = 0x7;
                 bridge.sendCommand(ACCELEROMETER, MOTION_CONFIG, config);
             }
 
@@ -454,6 +462,7 @@ namespace MbientLab.MetaWear.Impl {
                     config[2] = (byte)(threshold / BOSCH_NO_MOTION_THS_STEPS[accelerometer.DataScaleIndex]);
                 }
 
+                mask = 0x38;
                 bridge.sendCommand(ACCELEROMETER, MOTION_CONFIG, config);
             }
         }

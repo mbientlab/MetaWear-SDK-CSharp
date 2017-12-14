@@ -3,7 +3,7 @@ using System;
 
 namespace MbientLab.MetaWear.Impl {
     abstract class DataProcessorConfig {
-        internal static DataProcessorConfig from(Version firmware, byte[] config) {
+        internal static DataProcessorConfig from(Version firmware, byte revision, byte[] config) {
             switch (config[0]) {
                 case PassthroughConfig.ID:
                     return new PassthroughConfig(config);
@@ -22,7 +22,7 @@ namespace MbientLab.MetaWear.Impl {
                 case MathConfig.ID:
                     return new MathConfig(firmware.CompareTo(RouteComponent.MULTI_CHANNEL_MATH) >= 0, config);
                 case DelayConfig.ID:
-                    return new DelayConfig(config);
+                    return new DelayConfig(revision >= DataProcessor.EXPANDED_DELAY, config);
                 case PulseConfig.ID:
                     return new PulseConfig(config);
                 case DifferentialConfig.ID:
@@ -361,20 +361,23 @@ namespace MbientLab.MetaWear.Impl {
         internal class DelayConfig : DataProcessorConfig {
             internal const byte ID = 0xa;
 
+            internal readonly bool enhancedDelay;
             internal readonly byte input, samples;
 
-            internal DelayConfig(byte input, byte samples) : base(ID) {
+            internal DelayConfig(bool enhancedDelay, byte input, byte samples) : base(ID) {
+                this.enhancedDelay = enhancedDelay;
                 this.input = input;
                 this.samples = samples;
             }
 
-            internal DelayConfig(byte[] config) : base(config[0]) {
-                input = (byte)((config[1] & 0x3) + 1);
+            internal DelayConfig(bool enhancedDelay, byte[] config) : base(config[0]) {
+                this.enhancedDelay = enhancedDelay;
+                input = (byte)((config[1] & (enhancedDelay ? 0xf : 0x3)) + 1);
                 samples = config[2];
             }
 
             internal override byte[] Build() {
-                return new byte[] { ID, (byte)((input - 1) & 0x3), samples };
+                return new byte[] { ID, (byte)((input - 1) & (enhancedDelay ? 0xf : 0x3)), samples };
             }
 
             internal override string CreateIdentifier(bool state, byte procId) {

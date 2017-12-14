@@ -4,6 +4,14 @@ using System.Threading.Tasks;
 namespace MbientLab.MetaWear.Sensor {
     namespace GyroBmi160 {
         /// <summary>
+        /// Gyro digital filter modes on the BMI160
+        /// </summary>
+        public enum FilterMode {
+            Osr4,
+            Osr2,
+            Normal
+        }
+        /// <summary>
         /// Operating frequencies of the gyro
         /// </summary>
         public enum OutputDataRate {
@@ -46,7 +54,8 @@ namespace MbientLab.MetaWear.Sensor {
         /// </summary>
         /// <param name="odr">Output data rate</param>
         /// <param name="range">Data range</param>
-        void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._125dps);
+        /// <param name="filter">Accelerometer digital filter mode</param>
+        void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._125dps, FilterMode filter = FilterMode.Normal);
         /// <summary>
         /// Switch the gyro into active mode
         /// </summary>

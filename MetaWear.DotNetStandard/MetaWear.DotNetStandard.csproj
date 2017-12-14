@@ -5,6 +5,8 @@
     <AssemblyName>MbientLab.MetaWear.DotNetStandard</AssemblyName>
     <RootNamespace>MbientLab.MetaWear.DotNetStandard</RootNamespace>
     <DelaySign>false</DelaySign>
+    <FileVersion>0.3.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <Import Project="..\MetaWear\MetaWear.projitems" Label="Shared" />

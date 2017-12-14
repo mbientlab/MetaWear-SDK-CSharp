@@ -117,7 +117,7 @@ namespace MbientLab.MetaWear.Impl {
                     myIdentifier = Gpio.createIdentifier(this);
                     break;
                 case DATA_PROCESSOR:
-                    myIdentifier = DataProcessor.createIdentifier(this, bridge.GetModule<IDataProcessor>() as DataProcessor, bridge.getFirmware());
+                    myIdentifier = DataProcessor.createIdentifier(this, bridge.GetModule<IDataProcessor>() as DataProcessor, bridge.getFirmware(), bridge.lookupModuleInfo(DATA_PROCESSOR).revision);
                     break;
                 case SERIAL_PASSTHROUGH:
                     myIdentifier = SerialPassthrough.createIdentifier(this);

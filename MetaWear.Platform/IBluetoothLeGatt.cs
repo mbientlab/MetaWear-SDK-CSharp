@@ -10,7 +10,8 @@ namespace MbientLab.MetaWear.Platform {
         WRITE_WITHOUT_RESPONSE
     }
     /// <summary>
-    /// Bluetooth GATT operations used by the API, must be implemented by the target platform
+    /// Bluetooth GATT operations used by the API, must be implemented by the target platform.
+    /// <para>Before interacting with any of the characteristics, users must first call <see cref="DiscoverServicesAsync"/></para>
     /// </summary>
     public interface IBluetoothLeGatt {
         /// <summary>
@@ -20,8 +21,13 @@ namespace MbientLab.MetaWear.Platform {
         /// <summary>
         /// Handler to process disconnect events
         /// </summary>
-        Action<bool> OnDisconnect { get; set; }
+        Action OnDisconnect { get; set; }
 
+        /// <summary>
+        /// Discover GATT services and characteristics avaiable on the remote device
+        /// </summary>
+        /// <returns>Null when discovery is completed</returns>
+        Task DiscoverServicesAsync();
         /// <summary>
         /// Checks if a GATT service exists
         /// </summary>
@@ -41,20 +47,20 @@ namespace MbientLab.MetaWear.Platform {
         /// <param name="gattChar">GATT characteristic to write</param>
         /// <param name="writeType">Type of GATT write to use</param>
         /// <param name="value">Value to be written</param>
-        /// <returns>Null</returns>
+        /// <returns>Null when the task is completed</returns>
         Task WriteCharacteristicAsync(Tuple<Guid, Guid> gattChar, GattCharWriteType writeType, byte[] value);
         /// <summary>
         /// Enable notifications for the characteristic
         /// </summary>
         /// <param name="gattChar">Characteristic to enable notifications for</param>
         /// <param name="handler">Listener for handling characteristic notifications</param>
-        /// <returns>Null</returns>
+        /// <returns>Null when the task is completed</returns>
         Task EnableNotificationsAsync(Tuple<Guid, Guid> gattChar, Action<byte[]> handler);
 
         /// <summary>
-        /// Disconnect attempt that will be initiated by the remote device
+        /// Closes the Bluetooth LE connection
         /// </summary>
         /// <returns>Null when connection is lost</returns>
-        Task RemoteDisconnectAsync();
+        Task DisconnectAsync();
     }
 }

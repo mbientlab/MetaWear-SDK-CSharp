@@ -1,5 +1,6 @@
 ﻿using MbientLab.MetaWear.Core;
 using MbientLab.MetaWear.Peripheral;
+using MbientLab.MetaWear.Peripheral.IBeacon;
 using NUnit.Framework;
 using System.Threading.Tasks;
 
@@ -91,6 +92,26 @@ namespace MbientLab.MetaWear.Test {
 
             ibeacon.Configure(uuid: new System.Guid("326a9006-85cb-9195-d9dd-464cfbbae75a"));
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task ReadConfigAsync() {
+            platform.customResponses.Add(new byte[] { 0x07, 0x82 },
+                    new byte[] { 0x07, 0x82, 0x5a, 0xe7, 0xba, 0xfb, 0x4c, 0x46, 0xdd, 0xd9, 0x95, 0x91, 0xcb, 0x85, 0x00, 0x90, 0x6a, 0x32 });
+            platform.customResponses.Add(new byte[] { 0x07, 0x83 },
+                    new byte[] { 0x07, 0x83, 0x45, 0x0c });
+            platform.customResponses.Add(new byte[] { 0x07, 0x84 },
+                    new byte[] { 0x07, 0x84, 0x81, 0xe7 });
+            platform.customResponses.Add(new byte[] { 0x07, 0x85 },
+                    new byte[] { 0x07, 0x85, 0xc9 });
+            platform.customResponses.Add(new byte[] { 0x07, 0x86 },
+                    new byte[] { 0x07, 0x86, 0x00 });
+            platform.customResponses.Add(new byte[] { 0x07, 0x87 },
+                    new byte[] { 0x07, 0x87, 0x64, 0x00 });
+
+            var expected = new Configuration(new System.Guid("326a9000-85cb-9195-d9dd-464cfbbae75a"), 3141, 59265, 100, -55, 0);
+
+            Assert.That(await ibeacon.ReadConfigAsync(), Is.EqualTo(expected));
         }
     }
 }

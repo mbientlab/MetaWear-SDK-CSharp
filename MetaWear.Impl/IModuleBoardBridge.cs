@@ -5,13 +5,11 @@ using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Impl {
     interface IModuleBoardBridge {
-        Task remoteDisconnect();
-
-        void sendCommand(byte[] command);
-        void sendCommand(Module module, byte register, byte[] bytes);
-        void sendCommand(Module module, byte register, byte id, byte[] bytes);
-        void sendCommand(byte[] command, byte dest, IDataToken input);
-        void sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters);
+        Task sendCommand(byte[] command);
+        Task sendCommand(Module module, byte register, byte[] bytes);
+        Task sendCommand(Module module, byte register, byte id, byte[] bytes);
+        Task sendCommand(byte[] command, byte dest, IDataToken input);
+        Task sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters);
 
         ModuleInfo lookupModuleInfo(Module module);
         Task<IRoute> queueRouteBuilder(Action<IRouteComponent> builder, DataTypeBase source);

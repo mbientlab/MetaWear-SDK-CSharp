@@ -13,6 +13,18 @@ namespace MbientLab.MetaWear.Test {
             protected IList<IAnonymousRoute> loggers;
 
             public TestBase() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch), typeof(ILogging), typeof(IDataProcessor)) {
+            }
+
+            [SetUp]
+            public async override Task SetUp() {
+                await base.SetUp();
+
+                AddCustomResponses();
+
+                loggers = await metawear.CreateAnonymousRoutesAsync();
+            }
+
+            protected virtual void AddCustomResponses() {
                 platform.customResponses.Add(new byte[] { 0x3, 0x83 },
                         new byte[] { 0x03, 0x83, 40, 8 });
                 platform.customResponses.Add(new byte[] { 0x13, 0x83 },
@@ -20,18 +32,16 @@ namespace MbientLab.MetaWear.Test {
                 platform.customResponses.Add(new byte[] { 0x19, 0x82 },
                         new byte[] { 0x19, 0x82, 0x1, 0xf });
             }
-
-            [SetUp]
-            public async override Task SetUp() {
-                await base.SetUp();
-
-                loggers = await metawear.CreateAnonymousRoutesAsync();
-            }
         }
 
         [TestFixture]
         class TestAcceleration : TestBase {
             public TestAcceleration() : base() {
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x03, 0x04, 0xff, 0x60 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -73,6 +83,11 @@ namespace MbientLab.MetaWear.Test {
         [TestFixture]
         class TestGyroY : TestBase {
             public TestGyroY() : base() {
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x13, 0x05, 0xff, 0x22 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -90,6 +105,7 @@ namespace MbientLab.MetaWear.Test {
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x07 },
                         new byte[] { 0x0b, 0x82 });
             }
+
 
             [Test]
             public void SyncLoggers() {
@@ -116,6 +132,11 @@ namespace MbientLab.MetaWear.Test {
         [TestFixture]
         class TestSplitImu : TestBase {
             public TestSplitImu() : base() {
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x03, 0x04, 0xff, 0x60 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -166,6 +187,11 @@ namespace MbientLab.MetaWear.Test {
         [TestFixture]
         class TestMultipleLoggers : TestBase {
             public TestMultipleLoggers() : base() {
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x13, 0x05, 0xff, 0x60 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -192,7 +218,12 @@ namespace MbientLab.MetaWear.Test {
 
         [TestFixture]
         class TestActivity : TestBase {
-            public TestActivity() : base() {
+            public TestActivity() : base() {   
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x09, 0x03, 0x02, 0x60 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -257,7 +288,12 @@ namespace MbientLab.MetaWear.Test {
 
         [TestFixture]
         class TestQuaternionLimiter : TestBase {
-            public TestQuaternionLimiter() : base() {
+            public TestQuaternionLimiter() : base() {      
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
                         new byte[] { 0x0b, 0x82, 0x09, 0x03, 0x00, 0x60 });
                 platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
@@ -292,7 +328,6 @@ namespace MbientLab.MetaWear.Test {
         [TestFixture]
         class TestTimeout : UnitTestBase {
             public TestTimeout() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch), typeof(ILogging), typeof(IDataProcessor)) {
-
             }
             
             [Test]
@@ -330,6 +365,43 @@ namespace MbientLab.MetaWear.Test {
                 Assert.ThrowsAsync<TimeoutException>(async () => {
                     await metawear.CreateAnonymousRoutesAsync();
                 });
+            }
+        }
+
+        [TestFixture]
+        class TestBmi160StepCounter : TestBase {
+            public TestBmi160StepCounter() : base() {
+            }
+
+            protected override void AddCustomResponses() {
+                base.AddCustomResponses();
+
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
+                        new byte[] { 0x0b, 0x82, 0x03, 0xda, 0xff, 0x20 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x02 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x03 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x04 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x05 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x06 },
+                        new byte[] { 0x0b, 0x82 });
+                platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x07 },
+                        new byte[] { 0x0b, 0x82 });
+            }
+
+            [Test]
+            public void SyncLoggers() {
+                Assert.That(loggers.Count, Is.EqualTo(1));
+            }
+
+            [Test]
+            public void CheckIdentifier() {
+                Assert.That(loggers[0].Identifier, Is.EqualTo("step-counter"));
             }
         }
     }

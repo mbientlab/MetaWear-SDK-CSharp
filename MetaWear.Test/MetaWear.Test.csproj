@@ -95,6 +95,7 @@
     <Compile Include="UnitTestBase.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AccelerometerBoschTest.cs" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

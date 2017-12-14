@@ -6,9 +6,9 @@ namespace MbientLab.MetaWear.Impl {
         public static string arrayToHexString(byte[] array) {
             var builder = new StringBuilder();
 
-            builder.Append(string.Format("[0x{0:X2}", array[0]));
+            builder.Append(string.Format("[0x{0:x2}", array[0]));
             for (int i = 1; i < array.Length; i++) {
-                builder.Append(string.Format(", 0x{0:X2}", array[i]));
+                builder.Append(string.Format(", 0x{0:x2}", array[i]));
             }
             builder.Append("]");
             return builder.ToString();

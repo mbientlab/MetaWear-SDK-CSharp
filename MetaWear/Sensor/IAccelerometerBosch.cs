@@ -32,10 +32,10 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the orientation detection algorithm
             /// </summary>
-            /// <param name="Mode">New calculation mode</param>
-            /// <param name="Hysteresis">New hysteresis value for landscape/portrait detection.  
+            /// <param name="mode">New calculation mode</param>
+            /// <param name="hysteresis">New hysteresis value for landscape/portrait detection.  
             /// This value is in g's and defaults to 0.0625g</param>
-            void Configure(OrientationMode? Mode = null, float? Hysteresis = null);
+            void Configure(OrientationMode? mode = null, float? hysteresis = null);
         }
 
         /// <summary>
@@ -46,10 +46,10 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the flat detection algorithm.
             /// </summary>
-            /// <param name="Hold">Delay for which the flat value must remain stable for an interrupt, in milliseconds.  
+            /// <param name="hold">Delay for which the flat value must remain stable for an interrupt, in milliseconds.  
             /// The closest valid value will be chosen.</param>
-            /// <param name="Theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
-            void Configure(ushort? Hold = null, float? Theta = null);
+            /// <param name="theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
+            void Configure(ushort? hold = null, float? theta = null);
         }
 
         /// <summary>
@@ -141,19 +141,19 @@ namespace MbientLab.MetaWear.Sensor {
             /// <para>Both detection types are configured at once with this function.  All parameters are optional so 
             /// developers only need to set the ones they are need</para>
             /// </summary>
-            /// <param name="EnableLowG">Set to 'true' to enable low-g detection, defaults to 'false'</param>
-            /// <param name="LowDuration">Minimum amount of time the acceleration must stay below (ths + hys) for an interrupt, between [2.5, 640]ms</param>
-            /// <param name="LowThreshold">Threshold that triggers a low-g interrupt, between [0.00391, 2.0]g</param>
-            /// <param name="LowHysteresis">Hysteresis level for low-g interrupt, between [0, 0.375]g</param>
-            /// <param name="Mode">Low G detection type</param>
-            /// <param name="EnableHighGx">Set to 'true' to enable high-g detection on the x-axis, default to 'false'</param>
-            /// <param name="EnableHighGy">Set to 'true' to enable high-g detection on the y-axis, default to 'false'</param>
-            /// <param name="EnableHighGz">Set to 'true' to enable high-g detection on the z-axis, default to 'false'</param>
-            /// <param name="HighDuration">Minimum amount of time the acceleration sign does not change for an interrupt</param>
-            /// <param name="HighThreshold">Threshold for clearing high-g interrupt</param>
-            /// <param name="HighHysteresis">Hysteresis level for clearing the high-g interrupt</param>
-            void Configure(bool EnableLowG = false, ushort? LowDuration = null, float? LowThreshold = null, float? LowHysteresis = null, LowGMode? Mode = null,
-                bool EnableHighGx = false, bool EnableHighGy = false, bool EnableHighGz = false, ushort? HighDuration = null, float? HighThreshold = null, float? HighHysteresis = null);
+            /// <param name="enableLowG">Set to 'true' to enable low-g detection, defaults to 'false'</param>
+            /// <param name="lowDuration">Minimum amount of time the acceleration must stay below (ths + hys) for an interrupt, between [2.5, 640]ms</param>
+            /// <param name="lowThreshold">Threshold that triggers a low-g interrupt, between [0.00391, 2.0]g</param>
+            /// <param name="lowHysteresis">Hysteresis level for low-g interrupt, between [0, 0.375]g</param>
+            /// <param name="mode">Low G detection type</param>
+            /// <param name="enableHighGx">Set to 'true' to enable high-g detection on the x-axis, default to 'false'</param>
+            /// <param name="enableHighGy">Set to 'true' to enable high-g detection on the y-axis, default to 'false'</param>
+            /// <param name="enableHighGz">Set to 'true' to enable high-g detection on the z-axis, default to 'false'</param>
+            /// <param name="highDuration">Minimum amount of time the acceleration sign does not change for an interrupt</param>
+            /// <param name="highThreshold">Threshold for clearing high-g interrupt</param>
+            /// <param name="highHysteresis">Hysteresis level for clearing the high-g interrupt</param>
+            void Configure(bool enableLowG = false, ushort? lowDuration = null, float? lowThreshold = null, float? lowHysteresis = null, LowGMode? mode = null,
+                bool enableHighGx = false, bool enableHighGy = false, bool enableHighGz = false, ushort? highDuration = null, float? highThreshold = null, float? highHysteresis = null);
         }
 
         /// <summary>
@@ -216,21 +216,21 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the accelerometer for no-motion detection
             /// </summary>
-            /// <param name="Duration">Time, in milliseconds, for which no slope data points exceed the threshold</param>
-            /// <param name="Threshold">Threshold, in g's, for which no slope data points must exceed</param>
-            void ConfigureNo(int? Duration = null, float? Threshold = null);
+            /// <param name="duration">Time, in milliseconds, for which no slope data points exceed the threshold</param>
+            /// <param name="threshold">Threshold, in g's, for which no slope data points must exceed</param>
+            void ConfigureNo(int? duration = null, float? threshold = null);
             /// <summary>
             /// Configure the accelerometer for any-motion detection
             /// </summary>
-            /// <param name="Count">Number of consecutive slope data points that must be above the threshold</param>
-            /// <param name="Threshold">Value that the slope data points must be above</param>
-            void ConfigureAny(int? Count = null, float? Threshold = null);
+            /// <param name="count">Number of consecutive slope data points that must be above the threshold</param>
+            /// <param name="threshold">Value that the slope data points must be above</param>
+            void ConfigureAny(int? count = null, float? threshold = null);
             /// <summary>
             /// Configure the accelerometer for slow-motion detection
             /// </summary>
-            /// <param name="Count">Number of consecutive slope data points that must be above the threshold</param>
-            /// <param name="Threshold">Threshold, in g's, for which no slope data points must exceed</param>
-            void ConfigureSlow(byte? Count = null, float? Threshold = null);
+            /// <param name="count">Number of consecutive slope data points that must be above the threshold</param>
+            /// <param name="threshold">Threshold, in g's, for which no slope data points must exceed</param>
+            void ConfigureSlow(byte? count = null, float? threshold = null);
         }
 
         /// <summary>
@@ -297,13 +297,13 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the tap detection
             /// </summary>
-            /// <param name="EnableSingle">Set to 'true' to enable single tap, defaults to 'false'</param>
-            /// <param name="EnableDouble">Set to 'true' to enable double tap, defaults to 'false'</param>
-            /// <param name="Threshold">Threshold that the acceleration difference must exceed for a tap, in g's</param>
-            /// <param name="Quiet">Time that must pass before a second tap can occur</param>
-            /// <param name="Shock">Time to lock the data in the status register</param>
-            /// <param name="Window">Length of time for a second shock to occur for a double tap</param>
-            void Configure(bool EnableSingle = false, bool EnableDouble = false, float? Threshold = null, TapQuietTime? Quiet = null, TapShockTime? Shock = null, DoubleTapWindow? Window = null);
+            /// <param name="enableSingle">Set to 'true' to enable single tap, defaults to 'false'</param>
+            /// <param name="enableDouble">Set to 'true' to enable double tap, defaults to 'false'</param>
+            /// <param name="threshold">Threshold that the acceleration difference must exceed for a tap, in g's</param>
+            /// <param name="quiet">Time that must pass before a second tap can occur</param>
+            /// <param name="shock">Time to lock the data in the status register</param>
+            /// <param name="window">Length of time for a second shock to occur for a double tap</param>
+            void Configure(bool enableSingle = false, bool enableDouble = false, float? threshold = null, TapQuietTime? quiet = null, TapShockTime? shock = null, DoubleTapWindow? window = null);
         }
     }
     /// <summary>

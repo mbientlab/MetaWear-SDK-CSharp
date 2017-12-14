@@ -95,12 +95,10 @@ namespace MbientLab.MetaWear.Impl {
             bridge.addRegisterResponseHandler(Tuple.Create((byte)GYRO, Util.setRead(CONFIG)), response => readConfigTask.SetResult(response));
         }
 
-        public void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._125dps) {
+        public void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._125dps, FilterMode filter = FilterMode.Normal) {
             gyrDataConfig[1] &= 0xf8;
             gyrDataConfig[1] |= (byte) range;
-
-            gyrDataConfig[0] &= 0xf0;
-            gyrDataConfig[0] |= (byte) (odr + 6);
+            gyrDataConfig[0] = (byte) ((int) odr + 6 | (int) filter << 4);
 
             bridge.sendCommand(GYRO, CONFIG, gyrDataConfig);
         }

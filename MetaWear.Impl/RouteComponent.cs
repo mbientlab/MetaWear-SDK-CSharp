@@ -595,11 +595,14 @@ namespace MbientLab.MetaWear.Impl {
             if (source.attributes.length() <= 0) {
                 throw new IllegalRouteOperationException("Cannot delay null data");
             }
-            if (source.attributes.length() > 4) {
-                throw new IllegalRouteOperationException("Cannot delay data longer than 4 bytes");
+
+            bool enhanced = state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision >= DataProcessor.EXPANDED_DELAY;
+            int maxLength = enhanced ? 16 : 4;
+            if (source.attributes.length() > maxLength) {
+                throw new IllegalRouteOperationException(string.Format("Firmware does not support delayed data longer than {0} bytes", maxLength));
             }
 
-            var config = new DataProcessorConfig.DelayConfig(source.attributes.length(), samples);
+            var config = new DataProcessorConfig.DelayConfig(enhanced, source.attributes.length(), samples);
             var next = source.transform(config);
 
             return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));

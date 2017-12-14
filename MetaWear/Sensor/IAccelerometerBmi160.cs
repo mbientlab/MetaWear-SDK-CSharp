@@ -4,6 +4,14 @@ using MbientLab.MetaWear.Sensor.AccelerometerBosch;
 namespace MbientLab.MetaWear.Sensor {
     namespace AccelerometerBmi160 {
         /// <summary>
+        /// Accelerometer digital filter modes on the BMI160
+        /// </summary>
+        public enum FilterMode {
+            Osr4,
+            Osr2,
+            Normal
+        }
+        /// <summary>
         /// Operating frequencies of the BMI160 accelerometer
         /// </summary>
         public enum OutputDataRate {
@@ -46,8 +54,8 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the step counter algorithm.  Must be called to have the step algorithm function as a counter.
             /// </summary>
-            /// <param name="Mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
-            void Configure(StepDetectorMode Mode = StepDetectorMode.Normal);
+            /// <param name="mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
+            void Configure(StepDetectorMode mode = StepDetectorMode.Normal);
             /// <summary>
             /// Resets the internal step counter
             /// </summary>
@@ -61,8 +69,8 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the step counter algorithm.  Must be called to have the step algorithm function as a detector.
             /// </summary>
-            /// <param name="Mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
-            void Configure(StepDetectorMode Mode = StepDetectorMode.Normal);
+            /// <param name="mode">Sensitivity mode, defaults to <see cref="StepDetectorMode.Normal"/></param>
+            void Configure(StepDetectorMode mode = StepDetectorMode.Normal);
         }
 
         /// <summary>
@@ -82,9 +90,9 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the flat detection algorithm.
             /// </summary>
-            /// <param name="Hold">Delay for which the flat value must remain stable for an interrupt</param>
-            /// <param name="Theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
-            void Configure(FlatHoldTime? Hold = null, float? Theta = null);
+            /// <param name="hold">Delay for which the flat value must remain stable for an interrupt</param>
+            /// <param name="theta">Threshold angle defining a flat position, between [0, 44.8] degrees</param>
+            void Configure(FlatHoldTime? hold = null, float? theta = null);
         }
 
         /// <summary>
@@ -122,9 +130,9 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Configure the accelerometer for significant-motion detection
             /// </summary>
-            /// <param name="Skip">Number of seconds to sleep after movement is detected</param>
-            /// <param name="Proof">Number of seconds that movement must still be detected after the skip time passed</param>
-            void ConfigureSignificant(SkipTime? Skip = null, ProofTime? Proof = null);
+            /// <param name="skip">Number of seconds to sleep after movement is detected</param>
+            /// <param name="proof">Number of seconds that movement must still be detected after the skip time passed</param>
+            void ConfigureSignificant(SkipTime? skip = null, ProofTime? proof = null);
         }
     }
     /// <summary>
@@ -151,8 +159,9 @@ namespace MbientLab.MetaWear.Sensor {
         /// <summary>
         /// Configure the snsor with settings specific to the BMA255 accelerometer
         /// </summary>
-        /// <param name="odr">Output data rate</param>
-        /// <param name="range">Data range</param>
-        void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._2g);
+        /// <param name="odr">Output data rate, defaults to 100Hz</param>
+        /// <param name="range">Data range, defaults to +/-2g</param>
+        /// <param name="filter">Accelerometer digital filter mode, defaults to <see cref="FilterMode.Normal"/></param>
+        void Configure(OutputDataRate odr = OutputDataRate._100Hz, DataRange range = DataRange._2g, FilterMode filter = FilterMode.Normal);
     }
 }

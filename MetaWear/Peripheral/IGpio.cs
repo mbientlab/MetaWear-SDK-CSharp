@@ -32,7 +32,7 @@ namespace MbientLab.MetaWear.Peripheral {
         /// <summary>
         /// Data producer representing analog data from a gpio pin
         /// </summary>
-        public interface IAnalogDataProducer : IDataProducer {
+        public interface IAnalogDataProducer : IForcedDataProducer {
             /// <summary>
             /// Issues a read command to the analog pin
             /// </summary>
