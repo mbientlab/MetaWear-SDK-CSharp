@@ -13,16 +13,18 @@ namespace MbientLab.MetaWear.Impl {
     abstract class EditorImplBase : SerializableType, IEditor {
         [DataMember] internal byte[] config;
         [DataMember] internal readonly DataTypeBase source;
+        internal DataProcessorConfig configObj;
 
-        internal EditorImplBase(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(bridge) {
-            this.config = config;
+        internal EditorImplBase(DataProcessorConfig configObj, DataTypeBase source, IModuleBoardBridge bridge) : base(bridge) {
+            config = configObj.Build();
             this.source = source;
+            this.configObj = configObj;
         }
     }
 
     [DataContract]
     class NullEditor : EditorImplBase {
-        internal NullEditor(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+        internal NullEditor(DataProcessorConfig configObj, DataTypeBase source, IModuleBoardBridge bridge) : base(configObj, source, bridge) { }
     }
 
     [KnownType(typeof(AccumulatorEditorInner))]

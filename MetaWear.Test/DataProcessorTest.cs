@@ -17,6 +17,7 @@ namespace MbientLab.MetaWear.Test {
             typeof(IBarometerBmp280), typeof(IGpio), typeof(ILogging), typeof(IDataProcessor), typeof(ITemperature)) { }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestProcessorState : DataProcessorTest {
         [SetUp]
@@ -56,13 +57,14 @@ namespace MbientLab.MetaWear.Test {
             float expected = 260.5125f;
             float actual = 0f;
 
-            metawear.LookupRoute(1).AttachSubscriber(0, data => actual = data.Value<float>());
+            metawear.LookupRoute(1).Subscribers[0].Attach(data => actual = data.Value<float>());
 
             platform.sendMockResponse(new byte[] { 0x09, 0x84, 0x02, 0xcd, 0x20, 0x41, 0x00 });
             Assert.That(actual, Is.EqualTo(expected));
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestRms : DataProcessorTest {
         [Test]
@@ -91,6 +93,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestAccRightShift : DataProcessorTest {
         [Test]
@@ -123,6 +126,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestLedController : DataProcessorTest {
         [Test]
@@ -154,6 +158,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestFreeFall : DataProcessorTest {
         [SetUp]
@@ -183,6 +188,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestFeedback : DataProcessorTest {
         [Test]
@@ -260,6 +266,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestPulse : DataProcessorTest {
         [Test]
@@ -275,6 +282,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestMaths : DataProcessorTest {
         [Test]
@@ -304,6 +312,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestComparator : DataProcessorTest {
         [Test]
@@ -312,7 +321,7 @@ namespace MbientLab.MetaWear.Test {
                 new byte[] {0x09, 0x02, 0x05, 0xc7, 0x15, 0x20, 0x06, 0x2a, 0x00, 0x04, 0x00, 0x02, 0x00, 0x01, 0x80, 0x00 }
             };
 
-            var pin = metawear.GetModule<IGpio>().CreateVirtualPin(0x15);
+            var pin = metawear.GetModule<IGpio>().Pins[0].CreateVirtualPin(0x15);
             await pin.Adc.AddRouteAsync(source => source.Filter(Comparison.Gte, ComparisonOutput.Absolute, 1024, 512, 256, 128).Name("multi_comp"));
 
             platform.fileSuffix = "multi_comparator";
@@ -322,6 +331,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestPacker : DataProcessorTest {
         [Test]
@@ -363,6 +373,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestAccounter : DataProcessorTest {
         [Test]
@@ -447,8 +458,32 @@ namespace MbientLab.MetaWear.Test {
 
             Assert.That(actual, Is.EqualTo(expected));
         }
+
+        [Test]
+        public async Task CreateCountMode() {
+            byte[][] expected = {
+                new byte[] { 0x09, 0x02, 0x03, 0x04, 0xff, 0xa0, 0x11, 0x30, 0x03 }
+            };
+
+            var accelerometer = metawear.GetModule<IAccelerometer>();
+            await accelerometer.Acceleration.AddRouteAsync(source => source.Account(AccountType.Count));
+
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task CountData() {
+            uint? count = null;
+
+            var accelerometer = metawear.GetModule<IAccelerometer>();
+            await accelerometer.Acceleration.AddRouteAsync(source => source.Account(AccountType.Count).Stream(data => count = data.Extra<uint>()));
+            platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x00, 0xec, 0x01, 0x00, 0x00, 0x01, 0x0b, 0x9a, 0x07, 0x40, 0x40 });
+
+            Assert.That(count.Value, Is.EqualTo(492));
+        }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestAccounterPackerChain : DataProcessorTest {
         [SetUp]
@@ -478,7 +513,7 @@ namespace MbientLab.MetaWear.Test {
 
             int i = 0;
             DateTime? prev = null;
-            metawear.LookupRoute(0).AttachSubscriber(0, data => {
+            metawear.LookupRoute(0).Subscribers[0].Attach(data => {
                 if (prev != null) {
                     actual[i++] = Convert.ToInt32((data.Timestamp - prev.Value).TotalMilliseconds);
                 }
@@ -503,7 +538,7 @@ namespace MbientLab.MetaWear.Test {
             float[] actual = new float[expected.Length];
 
             int i = 0;
-            metawear.LookupRoute(0).AttachSubscriber(0, data => actual[i++] = data.Value<float>());
+            metawear.LookupRoute(0).Subscribers[0].Attach(data => actual[i++] = data.Value<float>());
 
             platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x01, 0x7b, 0x64, 0x02, 0x00, 0xec, 0x00, 0x92, 0x64, 0x02, 0x00, 0xeb, 0x00 });
             platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x01, 0xa8, 0x64, 0x02, 0x00, 0xef, 0x00, 0xbf, 0x64, 0x02, 0x00, 0xed, 0x00 });
@@ -523,6 +558,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestPackerAccounterChain : DataProcessorTest {
         [SetUp]
@@ -551,7 +587,7 @@ namespace MbientLab.MetaWear.Test {
             float[] actual = new float[expected.Length];
 
             int i = 0;
-            metawear.LookupRoute(0).AttachSubscriber(0, data => actual[i++] = data.Value<float>());
+            metawear.LookupRoute(0).Subscribers[0].Attach(data => actual[i++] = data.Value<float>());
 
             platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x01, 0x04, 0x85, 0xa0, 0x00, 0xc4, 0x00, 0xc5, 0x00, 0xc4, 0x00, 0xc3, 0x00 });
             platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x01, 0x5e, 0x85, 0xa0, 0x00, 0xc2, 0x00, 0xc3, 0x00, 0xc4, 0x00, 0xc2, 0x00 });
@@ -566,7 +602,7 @@ namespace MbientLab.MetaWear.Test {
 
             int i = 0;
             DateTime? prev = null;
-            metawear.LookupRoute(0).AttachSubscriber(0, data => {
+            metawear.LookupRoute(0).Subscribers[0].Attach(data => {
                 if (prev != null) {
                     actual[i++] = Convert.ToInt32((data.Timestamp - prev.Value).TotalMilliseconds);
                 }
@@ -587,6 +623,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestHighPassFilter : DataProcessorTest {
         [Test]
@@ -617,6 +654,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class TestDelay : DataProcessorTest {
         [Test]

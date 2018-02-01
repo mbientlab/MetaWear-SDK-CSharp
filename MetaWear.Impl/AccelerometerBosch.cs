@@ -70,7 +70,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschCartesianFloatData(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new AccelerationData(bridge, this, timestamp, data);
             }
 
@@ -118,7 +118,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschOrientationDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new OrientationData(this, bridge, timestamp, data);
             }
         }
@@ -134,7 +134,7 @@ namespace MbientLab.MetaWear.Impl {
                 }
 
                 config[0] &= 0xfc;
-                config[0] |= (byte)(mode ?? OrientationMode.SYMMETRICAL);
+                config[0] |= (byte)(mode ?? OrientationMode.Symmetrical);
 
                 bridge.sendCommand(ACCELEROMETER, ORIENT_CONFIG, config);
             }
@@ -172,7 +172,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschFlatDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new FlatData(this, bridge, timestamp, data);
             }
         }
@@ -229,7 +229,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschTapDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new BoschTapData(this, bridge, timestamp, data);
             }
         }
@@ -287,10 +287,10 @@ namespace MbientLab.MetaWear.Impl {
                 public override T Value<T>() {
                     var type = typeof(T);
                     if (type == typeof(LowHighG)) {
-                        Func<byte, byte, bool> CheckHighG = (axis, value) => {
+                        bool CheckHighG(byte axis, byte value) {
                             byte mask = (byte)(0x1 << axis);
                             return (value & mask) == mask;
-                        };
+                        }
                         byte highFirst = (byte)((bytes[0] & 0x1c) >> 2);
                         LowHighG casted = new LowHighG(
                                 (bytes[0] & 0x1) == 0x1,
@@ -319,7 +319,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschLowHighGDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new LowHighData(this, bridge, timestamp, data);
             }
         }
@@ -392,10 +392,10 @@ namespace MbientLab.MetaWear.Impl {
                 public override T Value<T>() {
                     var type = typeof(T);
                     if (type == typeof(AnyMotion)) {
-                        Func<byte, byte, bool> detected = (axis, value) => {
+                        bool detected(byte axis, byte value) {
                             byte mask = (byte)(0x1 << (axis + 3));
                             return (value & mask) == mask;
-                        };
+                        }
                         byte highFirst = (byte)((bytes[0] & 0x1c) >> 2);
                         AnyMotion casted = new AnyMotion(
                                 (bytes[0] & 0x40) == 0x40 ? Sign.Negative : Sign.Positive,
@@ -422,7 +422,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BoschMotionDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new AnyMotionData(this, bridge, timestamp, data);
             }
         }

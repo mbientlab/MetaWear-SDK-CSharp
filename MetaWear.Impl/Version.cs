@@ -35,7 +35,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public int CompareTo(Version that) {
-            Func<int, int, int> weightedCompare = (left, right) => (left < right) ? -1 : (left > right ? 1 : 0);
+            int weightedCompare(int left, int right) => (left < right) ? -1 : (left > right ? 1 : 0);
 
             return (that == null) ? 1 : 4 * weightedCompare(major, that.major) + 2 * weightedCompare(minor, that.minor) + weightedCompare(step, that.step);
         }

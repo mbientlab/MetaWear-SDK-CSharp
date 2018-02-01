@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Runtime.Serialization;
 using MbientLab.MetaWear.Core.DataProcessor;
 using static MbientLab.MetaWear.Impl.DataProcessorConfig.MathConfig;
+using static MbientLab.MetaWear.Impl.DataProcessorConfig;
 
 namespace MbientLab.MetaWear.Impl {
     enum BranchType {
@@ -182,7 +183,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataContract]
         internal class AverageEditorInner : EditorImplBase, IHighPassEditor, ILowPassEditor {
-            internal AverageEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal AverageEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
             
             public void Modify(byte samples) {
                 config[2] = samples;
@@ -207,7 +208,7 @@ namespace MbientLab.MetaWear.Impl {
             DataProcessorConfig config = new DataProcessorConfig.AverageConfig(source.attributes, samples, hpf, hasHpf);
             var next = source.transform(config);
             
-            return postCreate(next.Item2, new AverageEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new AverageEditorInner(config, next.Item1, state.bridge));
         }
         public IRouteComponent HighPass(byte samples) {
             if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.HPF_REVISION) {
@@ -224,7 +225,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataContract]
         internal class CounterEditorInner : EditorImplBase, ICounterEditor {
-            internal CounterEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal CounterEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Reset() {
                 bridge.sendCommand(new byte[] {(byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2],
@@ -244,7 +245,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataContract]
         internal class AccumulatorEditorInner : EditorImplBase, IAccumulatorEditor {
-            internal AccumulatorEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal AccumulatorEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Reset() {
                 bridge.sendCommand(new byte[] {(byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2],
@@ -283,8 +284,8 @@ namespace MbientLab.MetaWear.Impl {
             var next = source.transform(config);
             
             EditorImplBase editor = counter ?
-                new CounterEditorInner(config.Build(), next.Item1, state.bridge) as EditorImplBase :
-                new AccumulatorEditorInner(config.Build(), next.Item1, state.bridge) as EditorImplBase;
+                new CounterEditorInner(config, next.Item1, state.bridge) as EditorImplBase :
+                new AccumulatorEditorInner(config, next.Item1, state.bridge) as EditorImplBase;
 
             return postCreate(next.Item2, editor);
         }
@@ -295,7 +296,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             DataTypeBase processor = new IntegralDataType(source, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { }, 0, 0, false));
-            byte[] config = new byte[] { 0xf, (byte)(source.attributes.length() - 1) };
+            var config = new BufferConfig(source.attributes.length());
 
             state.dataProcessors.AddLast(Tuple.Create(
                 source.dataProcessorStateCopy(source, source.attributes), 
@@ -306,7 +307,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataContract]
         internal class SingleValueComparatorEditor : EditorImplBase, IComparatorEditor {
-            internal SingleValueComparatorEditor(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : 
+            internal SingleValueComparatorEditor(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : 
                 base(config, source, bridge) {
             }
 
@@ -363,7 +364,7 @@ namespace MbientLab.MetaWear.Impl {
                 return buffer;
             }
 
-            internal MultiValueComparatorEditor(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal MultiValueComparatorEditor(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Modify(Comparison op, params float[] references) {
                 byte[] newRef = fillReferences(source.scale(bridge), source, references);
@@ -399,7 +400,7 @@ namespace MbientLab.MetaWear.Impl {
                 DataProcessorConfig config = new DataProcessorConfig.SingleValueComparisonConfig(source.attributes.signed, op, (int)scaledReference);
                 var next = source.transform(config);
                     
-                return postCreate(next.Item2, new SingleValueComparatorEditor(config.Build(), next.Item1, state.bridge));
+                return postCreate(next.Item2, new SingleValueComparatorEditor(config, next.Item1, state.bridge));
             }
 
             bool anySigned = false;
@@ -413,7 +414,7 @@ namespace MbientLab.MetaWear.Impl {
                     MultiValueComparatorEditor.fillReferences(source.scale(state.bridge), source, references));
                 var next = source.transform(config);
 
-                return postCreate(next.Item2, new MultiValueComparatorEditor(config.Build(), next.Item1, state.bridge));
+                return postCreate(next.Item2, new MultiValueComparatorEditor(config, next.Item1, state.bridge));
             }
         }
         public IRouteComponent Filter(Comparison op, params string[] names) {
@@ -487,7 +488,7 @@ namespace MbientLab.MetaWear.Impl {
 
         [DataContract]
         internal class MapEditorInner : EditorImplBase, IMapEditor {
-            internal MapEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal MapEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void ModifyRhs(float rhs) {
                 float scaledRhs;
@@ -548,7 +549,7 @@ namespace MbientLab.MetaWear.Impl {
             var next = source.transform(config);
             config.output = next.Item1.attributes.sizes[0];
 
-            return postCreate(next.Item2, new MapEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new MapEditorInner(config, next.Item1, state.bridge));
         }
 
         private RouteComponent createCombiner(DataTypeBase source, bool rss) {
@@ -561,12 +562,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.CombinerConfig(source.attributes, rss);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class PassthroughEditorInner : EditorImplBase, IPassthroughEditor {
-            internal PassthroughEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge)  : base(config, source, bridge) { }
+            internal PassthroughEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge)  : base(config, source, bridge) { }
 
             public void Set(ushort value) {
                 bridge.sendCommand(DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2], Util.ushortToBytesLe(value));
@@ -588,7 +589,7 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.PassthroughConfig(type, value);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new PassthroughEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new PassthroughEditorInner(config, next.Item1, state.bridge));
         }
 
         public IRouteComponent Delay(byte samples) {
@@ -605,12 +606,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.DelayConfig(enhanced, source.attributes.length(), samples);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class PulseEditorInner : EditorImplBase, IPulseEditor {
-            internal PulseEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal PulseEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Modify(float threshold, ushort samples) {
                 byte[] newConfig = new byte[6];
@@ -636,12 +637,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.PulseConfig(source.attributes.length(), (int) (threshold * source.scale(state.bridge)), samples, pulse);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new PulseEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new PulseEditorInner(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class ThresholdEditorInner : EditorImplBase, IThresholdEditor {
-            internal ThresholdEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal ThresholdEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Modify(float threshold, float hysteresis) {
                 byte[] newConfig = new byte[6];
@@ -671,12 +672,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.ThresholdConfig(source.attributes, threshold, (int)(boundary * source.scale(state.bridge)), (short)(hysteresis * source.scale(state.bridge)));
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new ThresholdEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new ThresholdEditorInner(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class DifferentialEditorInner : EditorImplBase, IDifferentialEditor {
-            internal DifferentialEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal DifferentialEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Modify(float distance) {
                 Array.Copy(Util.intToBytesLe((int) (distance * source.scale(bridge))), 0, config, 2, 4);
@@ -700,12 +701,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.DifferentialConfig(source.attributes, differential, (int)(distance * source.scale(state.bridge)));
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new DifferentialEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new DifferentialEditorInner(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class TimeEditorInner : EditorImplBase, ITimeEditor {
-            internal TimeEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal TimeEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Modify(uint period) {
                 Array.Copy(Util.uintToBytesLe(period), 0, config, 2, 4);
@@ -726,12 +727,12 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.TimeConfig(source.attributes.length(), (byte) (hasTimePassthrough ? 2 : 0), period);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new TimeEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new TimeEditorInner(config, next.Item1, state.bridge));
         }
 
         [DataContract]
         internal class PackerEditorInner : EditorImplBase, IPackerEditor {
-            internal PackerEditorInner(byte[] config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
+            internal PackerEditorInner(DataProcessorConfig config, DataTypeBase source, IModuleBoardBridge bridge) : base(config, source, bridge) { }
 
             public void Clear() {
                 bridge.sendCommand(new byte[] { (byte) DATA_PROCESSOR, DataProcessor.STATE, source.eventConfig[2] });
@@ -748,27 +749,32 @@ namespace MbientLab.MetaWear.Impl {
             var config = new DataProcessorConfig.PackerConfig(source.attributes.length(), count);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new PackerEditorInner(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new PackerEditorInner(config, next.Item1, state.bridge));
         }
 
         public IRouteComponent Account() {
+            return Account(AccountType.Time);
+        }
+
+        public IRouteComponent Account(AccountType type) {
             if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.ENHANCED_STREAMING_REVISION) {
                 throw new IllegalRouteOperationException("Current firmware does not support data accounting");
             }
-            if (source.attributes.length() + 4 + 3 > MetaWearBoard.MAX_PACKET_LENGTH) {
+
+            byte size = (byte) (type == AccountType.Time ? 4 : Math.Min(4, MetaWearBoard.MAX_PACKET_LENGTH - 3 - source.attributes.length()));
+            if (type == AccountType.Time && source.attributes.length() + size + 3 > MetaWearBoard.MAX_PACKET_LENGTH || type == AccountType.Count && size < 0) {
                 throw new IllegalRouteOperationException("Not enough space left in the ble packet to add accounter information");
             }
-
-            const byte size = 4;
-            var config = new DataProcessorConfig.AccounterConfig(size);
+            
+            var config = new AccounterConfig(type, size);
             var next = source.transform(config);
 
-            return postCreate(next.Item2, new NullEditor(config.Build(), next.Item1, state.bridge));
+            return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }
 
         private RouteComponent postCreate(DataTypeBase processorState, EditorImplBase editor) {
             state.dataProcessors.AddLast(Tuple.Create(processorState, editor));
             return new RouteComponent(editor.source, this);
-        }        
+        }
     }
 }

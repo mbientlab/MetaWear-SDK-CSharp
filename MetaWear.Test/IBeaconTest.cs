@@ -5,6 +5,7 @@ using NUnit.Framework;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class IBeaconTest : UnitTestBase {
         private IIBeacon ibeacon;

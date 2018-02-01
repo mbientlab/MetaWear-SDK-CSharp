@@ -70,7 +70,7 @@ namespace MbientLab.MetaWear.Impl {
         public override float scale(IModuleBoardBridge bridge) {
             return 1f;
         }
-        public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+        public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
             return new IntegralData(logData, bridge, this, timestamp, data);
         }
 

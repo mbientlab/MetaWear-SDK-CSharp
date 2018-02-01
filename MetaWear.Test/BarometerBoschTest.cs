@@ -44,6 +44,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(BarometerBoschTestFixtureData), "Params")]
     class BarometerBoschTest : UnitTestBase {
         internal static readonly byte[] STANDBY_BITMASK = new byte[] { 0x00, 0x20, 0x40, 0x60, 0x80, 0xa0, 0xc0, 0xe0 };

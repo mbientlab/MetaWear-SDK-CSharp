@@ -53,6 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AccelerometerBmi160Test.cs" />
+    <Compile Include="AccelerometerMma8452qTest.cs" />
     <Compile Include="AccelerometerTest.cs" />
     <Compile Include="AmbientLightLtr329Test.cs" />
     <Compile Include="AnonymousRouteTest.cs" />
@@ -75,6 +76,7 @@
     <Compile Include="LedTest.cs" />
     <Compile Include="LoggingDataTest.cs" />
     <Compile Include="LoggingTest.cs" />
+    <Compile Include="LoggingTimeTest.cs" />
     <Compile Include="MacroTest.cs" />
     <Compile Include="MagnetometerBmm150Test.cs" />
     <Compile Include="MetaWearBoardTest.cs" />

@@ -560,17 +560,20 @@ namespace MbientLab.MetaWear.Impl {
             internal const byte ID = 0x11;
 
             internal readonly byte length;
+            internal readonly AccountType type;
 
-            internal AccounterConfig(byte length) : base(ID) {
+            internal AccounterConfig(AccountType type, byte length) : base(ID) {
+                this.type = type;
                 this.length = length;
             }
 
             internal AccounterConfig(byte[] config) : base(ID) {
+                type = (AccountType) (config[1] & 0xf);
                 length = (byte)(((config[1] >> 4) & 0x3) + 1);
             }
 
             internal override byte[] Build() {
-                return new byte[] { ID, (byte)(0x1 | ((length - 1) << 4)), 0x3 };
+                return new byte[] { ID, (byte)((byte) type | ((length - 1) << 4)), 0x3 };
             }
 
             internal override string CreateIdentifier(bool state, byte procId) {

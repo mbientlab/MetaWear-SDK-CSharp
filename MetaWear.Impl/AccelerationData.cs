@@ -2,7 +2,7 @@
 using System;
 
 namespace MbientLab.MetaWear.Impl {
-    class AccelerationData : DataBase {
+    internal class AccelerationData : DataBase {
         public AccelerationData(IModuleBoardBridge bridge, DataTypeBase datatype, DateTime timestamp, byte[] bytes) : 
             base(bridge, datatype, timestamp, bytes) {
         }

@@ -38,6 +38,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)IForcedDataProducer.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IllegalRouteOperationException.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)IObserver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)ISubscriber.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Model.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Peripheral\IGpio.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Peripheral\IHaptic.cs" />

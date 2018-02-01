@@ -2,13 +2,10 @@
 using MbientLab.MetaWear.Core;
 using MbientLab.MetaWear.Peripheral;
 using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class DebugRouteTest : UnitTestBase {
         private IDebug debug;

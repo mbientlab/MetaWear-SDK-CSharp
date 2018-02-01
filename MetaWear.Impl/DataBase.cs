@@ -1,20 +1,21 @@
 ﻿using MbientLab.MetaWear.Data;
 using System;
-using System.Reflection;
 
 namespace MbientLab.MetaWear.Impl {
     abstract class DataBase : IData {
-        internal readonly DateTime timestamp;
         internal readonly byte[] bytes;
 
         internal readonly IModuleBoardBridge bridge;
         internal readonly DataTypeBase datatype;
 
+        internal Func<Type, object> extraFn;
+
         internal DataBase(IModuleBoardBridge bridge, DataTypeBase datatype, DateTime timestamp, byte[] bytes) {
-            this.timestamp = timestamp;
+            Timestamp = timestamp;
             this.bytes = bytes;
             this.bridge = bridge;
             this.datatype = datatype;
+            extraFn = type => null;
         }
 
         public byte[] Bytes {
@@ -25,22 +26,9 @@ namespace MbientLab.MetaWear.Impl {
                 return copy;
             }
         }
-        public DateTime Timestamp {
-            get {
-                return timestamp;
-            }
-        }
-        public string FormattedTimestamp {
-            get {
-                return timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fff");
-            }
-        }
-        public virtual float Scale {
-            get {
-                return datatype.scale(bridge);
-            }
-        }
-
+        public DateTime Timestamp { get; private set; }
+        public string FormattedTimestamp => Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fff");
+        public virtual float Scale => datatype.scale(bridge);
         public abstract Type[] Types { get; }
 
         public virtual T Value<T>() {
@@ -49,6 +37,11 @@ namespace MbientLab.MetaWear.Impl {
 
         public override string ToString() {
             return string.Format("{{timestamp: {0}, data: {1}{2}", FormattedTimestamp, Util.arrayToHexString(Bytes), "}");
+        }
+
+        public T Extra<T>() {
+            var type = typeof(T);
+            return (T) Convert.ChangeType(extraFn(type), type);
         }
     }
 

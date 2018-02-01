@@ -151,6 +151,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class SensorFusionBoschTest : UnitTestBase {
         private ISensorFusionBosch sensorFusion;
@@ -172,6 +173,7 @@ namespace MbientLab.MetaWear.Test {
             new byte[] {0x13, 0x23, 0x33, 0x43}
         };
 
+        [Parallelizable]
         [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "ConfigureTestCases")]
         public void Configure(Mode mode, AccRange acc, GyroRange gyr, Sensor.AccelerometerBmi160.FilterMode accFilter, FilterMode gyroFilter) {
             byte[][] expected = null;
@@ -218,6 +220,7 @@ namespace MbientLab.MetaWear.Test {
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 
+        [Parallelizable]
         [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "StartAndStopTestCases")]
         public void StartAndStop(String property, byte[][] expected) {
             Type type = typeof(ISensorFusionBosch);
@@ -232,6 +235,7 @@ namespace MbientLab.MetaWear.Test {
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 
+        [Parallelizable]
         [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "InterpretDataTestCases")]
         public async Task InterpretDataAsync(String property, object expected, byte[] response) {
             Type type = typeof(ISensorFusionBosch), valueType = expected.GetType();

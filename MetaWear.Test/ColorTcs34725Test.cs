@@ -4,8 +4,6 @@ using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -33,7 +31,8 @@ namespace MbientLab.MetaWear.Test {
             }
         }
     }
-    
+
+    [Parallelizable]
     [TestFixture]
     class ColorTcs34725Test : UnitTestBase {
         private IColorTcs34725 color;

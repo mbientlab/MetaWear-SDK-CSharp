@@ -27,6 +27,13 @@ namespace MbientLab.MetaWear {
         /// the <see cref="Bytes"/> property
         /// </summary>
         float Scale { get; }
+
+        /// <summary>
+        /// Extra information attached to this data sample
+        /// </summary>
+        /// <typeparam name="T">Type to cast the return value as</typeparam>
+        /// <returns>Extra information as the specified type</returns>
+        T Extra<T>();
         /// <summary>
         /// Converts the data bytes to a usable data type
         /// </summary>

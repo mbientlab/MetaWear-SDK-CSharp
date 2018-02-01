@@ -20,6 +20,8 @@ namespace MbientLab.MetaWear.Test {
             }
         }
     }
+
+    [Parallelizable]
     [TestFixture]
     class NeoPixelTest : UnitTestBase {
         private INeoPixel neopixel;

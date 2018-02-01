@@ -54,7 +54,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new QuaternionDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new QuaternionData(bridge, this, timestamp, data);
             }
         }
@@ -70,7 +70,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new EulerAnglesDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new EulerAnglesData(bridge, this, timestamp, data);
             }
         }
@@ -105,7 +105,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new FusedAccelerationDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new AccelerationFloatData(bridge, this, timestamp, data);
             }
 
@@ -155,7 +155,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new CorrectedAccelerationDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new CorrectedAccelerationData(bridge, this, timestamp, data);
             }
 
@@ -196,7 +196,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new CorrectedAngularVelocityDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new CorrectedAngularVelocityData(bridge, this, timestamp, data);
             }
         }
@@ -233,7 +233,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new CorrectedBFieldDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new CorrectedMagneticFieldData(bridge, this, timestamp, data);
             }
 
@@ -358,18 +358,18 @@ namespace MbientLab.MetaWear.Impl {
             var gyro = bridge.GetModule<IGyroBmi160>();
             var magnetometer = bridge.GetModule<IMagnetometerBmm150>();
 
-            Action<Sensor.AccelerometerBmi160.OutputDataRate> configAcc = (odr) => {
+            void configAcc(Sensor.AccelerometerBmi160.OutputDataRate odr) {
                 if (accelerometer is IAccelerometerBmi160) {
                     var casted = accelerometer as IAccelerometerBmi160;
 
-                    Func<Sensor.AccelerometerBosch.DataRange, Action<Sensor.AccelerometerBmi160.FilterMode>> configure = 
-                            range => filter => casted.Configure(odr: odr, range: range, filter: filter);
-                    var partial = configure((Sensor.AccelerometerBosch.DataRange) ar);
-                    
+                    Action<Sensor.AccelerometerBmi160.FilterMode> configure(Sensor.AccelerometerBosch.DataRange range) => 
+                        filter => casted.Configure(odr: odr, range: range, filter: filter);
+                    var partial = configure((Sensor.AccelerometerBosch.DataRange)ar);
+
                     if (accExtra != null) {
-                        foreach(Object it in accExtra) {
+                        foreach (Object it in accExtra) {
                             if (it is Sensor.AccelerometerBmi160.FilterMode) {
-                                partial((Sensor.AccelerometerBmi160.FilterMode) it);
+                                partial((Sensor.AccelerometerBmi160.FilterMode)it);
                                 break;
                             }
                         }
@@ -377,11 +377,11 @@ namespace MbientLab.MetaWear.Impl {
                         partial(Sensor.AccelerometerBmi160.FilterMode.Normal);
                     }
                 }
-            };
-            Action configGyro = () => {
-                Func<Sensor.GyroBmi160.DataRange, Action<Sensor.GyroBmi160.FilterMode>> configure = 
-                        range => filter => gyro.Configure(odr: Sensor.GyroBmi160.OutputDataRate._100Hz, range: range, filter: filter);
-                var partial = configure((Sensor.GyroBmi160.DataRange) gr);
+            }
+            void configGyro() {
+                Action<Sensor.GyroBmi160.FilterMode> configure(Sensor.GyroBmi160.DataRange range) => 
+                    filter => gyro.Configure(odr: Sensor.GyroBmi160.OutputDataRate._100Hz, range: range, filter: filter);
+                var partial = configure((Sensor.GyroBmi160.DataRange)gr);
 
                 if (gyroExtra != null) {
                     foreach (Object it in gyroExtra) {
@@ -393,7 +393,7 @@ namespace MbientLab.MetaWear.Impl {
                 } else {
                     partial(Sensor.GyroBmi160.FilterMode.Normal);
                 }
-            };
+            }
 
             this.mode = mode;
             switch (mode) {

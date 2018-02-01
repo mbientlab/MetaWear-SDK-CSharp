@@ -18,6 +18,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(AccelerometerTestFixtureData), "Params")]
     class AccelerometerTest : UnitTestBase {
         private IAccelerometer accelerometer;

@@ -27,6 +27,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(LedPatternTestFixtureData), "Params")]
     internal class LedPatternTest : UnitTestBase {
         private bool delaySupported;

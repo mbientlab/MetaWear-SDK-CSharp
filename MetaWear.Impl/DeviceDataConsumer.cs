@@ -6,18 +6,18 @@ namespace MbientLab.MetaWear.Impl {
     [DataContract]
     abstract class DeviceDataConsumer {
         [DataMember] internal readonly DataTypeBase source;
-        internal Action<IData> subscriber;
+        internal Action<IData> handler;
 
         public DeviceDataConsumer(DataTypeBase source) {
             this.source = source;
         }
 
-        public DeviceDataConsumer(DataTypeBase source, Action<IData> subscriber) : this(source) {
-            this.subscriber = subscriber;
+        public DeviceDataConsumer(DataTypeBase source, Action<IData> handler) : this(source) {
+            this.handler = handler;
         }
 
         public void call(IData data) {
-            subscriber?.Invoke(data);
+            handler?.Invoke(data);
         }
 
         public abstract void enableStream(IModuleBoardBridge bridge);

@@ -38,11 +38,11 @@ namespace MbientLab.MetaWear.Impl {
 
             foreach (var it in commands) {
                 foreach (var cmd in convertToMacroCommand(it)) {
-                    await bridge.sendCommand(cmd);
+                    bridge.sendCommand(cmd);
                 }
             }
 
-            await bridge.sendCommand(new byte[] { (byte)MACRO, END });
+            bridge.sendCommand(new byte[] { (byte)MACRO, END });
 
             return id;
         }

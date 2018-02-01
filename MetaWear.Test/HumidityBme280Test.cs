@@ -21,6 +21,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class HumidityBme280Test : UnitTestBase {
         private IHumidityBme280 humidity;

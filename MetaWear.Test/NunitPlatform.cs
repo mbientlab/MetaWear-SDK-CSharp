@@ -108,15 +108,15 @@ namespace MbientLab.MetaWear.Test {
                     charChangedHandler(response);
                 }
             } else {
+                byte[] response = null;
+
                 if (value[0] == 0xb && value[1] == 0x84) {
                     connectCommands.Add(value);
-                    await Task.Delay(RESPONSE_DELAY);
-                    charChangedHandler(new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 });
+                    response = customResponses.ContainsKey(value) ? customResponses[value] : new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 };
                 } else { 
                     commands.Add(value);
                     writeTypes.Add(writeType);
 
-                    byte[] response = null;
                     if (customResponses.ContainsKey(value)) {
                         response = customResponses[value];
                     } else if (loggerId < maxLoggers && value[0] == 0xb && value[1] == 0x2) {
@@ -141,12 +141,12 @@ namespace MbientLab.MetaWear.Test {
 
                         nDisconnects++;
                         OnDisconnect();
-                    }
+                    }   
+                }
 
-                    if (response != null) {
-                        await Task.Delay(RESPONSE_DELAY);
-                        charChangedHandler(response);
-                    }
+                if (response != null) {
+                    //await Task.Delay(RESPONSE_DELAY);
+                    charChangedHandler(response);
                 }
             }
         }

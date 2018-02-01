@@ -19,6 +19,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestStepCounter : TestBase {
             [Test]
@@ -59,6 +60,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestStepDetector : TestBase {
             [Test]
@@ -91,6 +93,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestSignificantMotion : TestBase {
             [Test]

@@ -61,25 +61,20 @@ namespace MbientLab.MetaWear.Core {
             /// </summary>
             public byte Timeout { get; }
             /// <summary>
-            /// BLE radio's transmitting strength
-            /// </summary>
-            public sbyte TxPower { get; }
-            /// <summary>
             /// Scan response
             /// </summary>
             public byte[] ScanResponse { get; }
 
-            public BleAdvertisementConfig(String deviceName, ushort interval, byte timeout, sbyte txPower, byte[] scanResponse) {
+            public BleAdvertisementConfig(String deviceName, ushort interval, byte timeout, byte[] scanResponse) {
                 DeviceName = deviceName;
                 Interval = interval;
                 Timeout = timeout;
-                TxPower = txPower;
                 ScanResponse = scanResponse;
             }
 
             public override string ToString() {
-                return string.Format("{{Device Name: {0}, Adv Interval: {1:d}, Adv Timeout: {2:d}, Tx Power: {3:d}, Scan Response: {4}{5}", 
-                    DeviceName, Interval, Timeout, TxPower, Util.arrayToHexString(ScanResponse), "}");
+                return string.Format("{{Device Name: {0}, Adv Interval: {1:d}, Adv Timeout: {2:d}, Scan Response: {3}{4}", 
+                    DeviceName, Interval, Timeout, Util.arrayToHexString(ScanResponse), "}");
             }
 
             public override bool Equals(Object obj) {
@@ -89,14 +84,13 @@ namespace MbientLab.MetaWear.Core {
                 BleAdvertisementConfig config = obj as BleAdvertisementConfig;
 
                 return config.DeviceName.Equals(DeviceName) && config.ScanResponse.SequenceEqual(ScanResponse) && 
-                    config.Interval == Interval && config.Timeout == Timeout && config.TxPower == TxPower;
+                    config.Interval == Interval && config.Timeout == Timeout;
             }
 
             public override int GetHashCode() {
                 int result = DeviceName.GetHashCode();
                 result = 31 * result + Interval;
                 result = 31 * result + Timeout;
-                result = 31 * result + TxPower;
                 result = 31 * result + EqualityComparer<byte[]>.Default.GetHashCode(ScanResponse); ;
                 return result;
             }
@@ -184,7 +178,17 @@ namespace MbientLab.MetaWear.Core {
         /// <returns>Object representing the ble connection parameters</returns>
         /// <exception cref="NotSupportedException">If the firmware revision does not support ble connection parameters</exception>
         Task<BleConnectionParameters> ReadBleConnParamsAsync();
+        /// <summary>
+        /// Reads the radio's current transmitting power
+        /// </summary>
+        /// <returns>Tx power</returns>
+        Task<sbyte> ReadTxPowerAsync();
 
+        /// <summary>
+        /// Sets the radio's transmitting power
+        /// </summary>
+        /// <param name="power">One of: 4, 0, -4, -8, -12, -16, -20, or -30</param>
+        void SetTxPower(sbyte power);
         /// <summary>
         /// Edit the ble connection parameters
         /// </summary>
@@ -199,9 +203,8 @@ namespace MbientLab.MetaWear.Core {
         /// <param name="name">Advertising name, max of 8 ASCII characters</param>
         /// <param name="timeout">Time between advertise events, in milliseconds (ms)</param>
         /// <param name="interval">How long to advertise for, between [0, 180] seconds where 0 indicates no timeout</param>
-        /// <param name="txPower">Transmitting power, one of: 4, 0, -4, -8, -12, -16, -20, -30</param>
         /// <param name="scanResponse">Custom scan response packet</param>
-        void EditBleAdConfig(string name = null, byte? timeout = null, ushort? interval = null, sbyte? txPower = null, byte[] scanResponse = null);
+        void EditBleAdConfig(string name = null, byte? timeout = null, ushort? interval = null, byte[] scanResponse = null);
         /// <summary>
         /// Starts ble advertising
         /// </summary>

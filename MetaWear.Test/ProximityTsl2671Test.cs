@@ -30,6 +30,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class ProximityTsl2671Test : UnitTestBase {
         private IProximityTsl2671 proximity;

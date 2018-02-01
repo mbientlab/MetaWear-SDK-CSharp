@@ -146,10 +146,10 @@ namespace MbientLab.MetaWear.Impl {
                             Timer timer = bridge.GetModule<Timer>();
                             timer.activeTasks[id] = null;
 
-                            bridge.sendCommand(new byte[] { (byte) TIMER, REMOVE, id });
+                            bridge.sendCommand(new byte[] { (byte)TIMER, REMOVE, id });
 
                             Event eventModule = bridge.GetModule<Event>();
-                            foreach(byte it in eventCmdIds) {
+                            foreach (byte it in eventCmdIds) {
                                 eventModule.remove(it);
                             }
                         }
@@ -158,7 +158,7 @@ namespace MbientLab.MetaWear.Impl {
 
                 public void Start() {
                     if (Valid) {
-                        bridge.sendCommand(new byte[] { (byte) TIMER, START, id });
+                        bridge.sendCommand(new byte[] { (byte)TIMER, START, id });
                     }
                 }
 
@@ -180,7 +180,7 @@ namespace MbientLab.MetaWear.Impl {
             internal override void restoreTransientVars(IModuleBoardBridge bridge) {
                 base.restoreTransientVars(bridge);
 
-                foreach(var it in activeTasks) {
+                foreach (var it in activeTasks) {
                     if (it != null) {
                         it.restoreTransientVars(bridge);
                     }
@@ -194,7 +194,7 @@ namespace MbientLab.MetaWear.Impl {
 
             public override void tearDown() {
                 byte i = 0;
-                foreach(var e in activeTasks) {
+                foreach (var e in activeTasks) {
                     if (e != null) {
                         e.Remove(false);
                     }
@@ -227,48 +227,58 @@ namespace MbientLab.MetaWear.Impl {
 
         private class ModuleBoardBridge : IModuleBoardBridge {
             private MetaWearBoard metawear;
+            private Queue<byte[]> commands = new Queue<byte[]>();
 
             public int TimeForResponse => metawear.timeForResponse;
 
             public ModuleBoardBridge(MetaWearBoard metawear) {
                 this.metawear = metawear;
             }
-            
+
             public ModuleInfo lookupModuleInfo(Module module) {
                 return metawear.persistent.attributes.moduleInfo.TryGetValue(module, out ModuleInfo result) ? result : null;
             }
 
-            public async Task sendCommand(byte[] command) {
-                if (GetModule<Event>() is Event eventModule && eventModule.ActiveDataType != null) {
-                    eventModule.convertToEventCommand(command);
-                } else {
+            private async void writeValue(bool force) {
+                if (force || commands.Count() == 1) {
+                    var cmd = commands.First();
                     try {
                         if (GetModule<IMacro>() is Macro macro && macro.isRecording) {
-                            macro.commands.Enqueue(command);
+                            macro.commands.Enqueue(cmd);
                         }
                         await metawear.gatt.WriteCharacteristicAsync(
                             COMMAND_GATT_CHAR,
-                            command[0] == (byte)MACRO ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE,
-                            command
+                            cmd[0] == (byte)MACRO ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE,
+                            cmd
                         );
-                        
+
+                        commands.Dequeue();
+                        if (commands.Count() > 0) {
+                            writeValue(true);
+                        }
                     } catch (Exception e) {
-                        metawear.io.LogWarn("metawear", "Failed to send command: " + Util.arrayToHexString(command), e);
+                        metawear.OnError?.Invoke("Failed to send command: " + Util.arrayToHexString(cmd), e);
                     }
                 }
             }
-
-            public async Task sendCommand(Module module, byte register, byte[] bytes) {
+            public void sendCommand(byte[] command) {
+                if (GetModule<Event>() is Event eventModule && eventModule.ActiveDataType != null) {
+                    eventModule.convertToEventCommand(command);
+                } else {
+                    commands.Enqueue(command);
+                    writeValue(false);
+                }
+            }
+            public void sendCommand(Module module, byte register, byte[] bytes) {
                 byte[] command = new byte[bytes.Length + 2];
 
-                command[0] = (byte) module;
+                command[0] = (byte)module;
                 command[1] = register;
                 Array.Copy(bytes, 0, command, 2, bytes.Length);
 
-                await sendCommand(command);
+                sendCommand(command);
             }
-
-            public async Task sendCommand(Module module, byte register, byte id, byte[] bytes) {
+            public void sendCommand(Module module, byte register, byte id, byte[] bytes) {
                 byte[] command = new byte[bytes.Length + 3];
 
                 command[0] = (byte)module;
@@ -276,25 +286,25 @@ namespace MbientLab.MetaWear.Impl {
                 command[2] = id;
                 Array.Copy(bytes, 0, command, 3, bytes.Length);
 
-                await sendCommand(command);
+                sendCommand(command);
             }
-            public async Task sendCommand(byte[] command, byte dest, IDataToken input) {
+            public void sendCommand(byte[] command, byte dest, IDataToken input) {
                 metawear.persistent.modules.TryGetValue(typeof(Event).FullName, out var module);
                 Event eventModule = module as Event;
 
                 DataTypeBase producer = (DataTypeBase)input;
-                eventModule.feedbackParams= Tuple.Create(producer.attributes.length(), producer.attributes.offset, dest);
-                await sendCommand(command);
-                eventModule.feedbackParams= null;
+                eventModule.feedbackParams = Tuple.Create(producer.attributes.length(), producer.attributes.offset, dest);
+                sendCommand(command);
+                eventModule.feedbackParams = null;
             }
-            public async Task sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters) {
+            public void sendCommand(byte dest, IDataToken input, Module module, byte register, byte id, params byte[] parameters) {
                 byte[] command = new byte[parameters.Length + 3];
                 Array.Copy(parameters, 0, command, 3, parameters.Length);
-                command[0] = (byte) module;
+                command[0] = (byte)module;
                 command[1] = register;
                 command[2] = id;
 
-                await sendCommand(command, dest, input);
+                sendCommand(command, dest, input);
             }
 
             public Task<IRoute> queueRouteBuilder(Action<IRouteComponent> builder, DataTypeBase source) {
@@ -340,17 +350,17 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             public void removeDataHandler(Tuple<byte, byte, byte> key, Action<byte[]> handler) {
-                if (metawear.dataHandlers.TryGetValue(key, out HashSet<Action<byte[]>>  value)) {
+                if (metawear.dataHandlers.TryGetValue(key, out HashSet<Action<byte[]>> value)) {
                     value.Remove(handler);
                 }
             }
 
             public int numDataHandlers(Tuple<byte, byte, byte> key) {
-                return metawear.dataHandlers.TryGetValue(key, out HashSet<Action<byte[]>>  value) ? value.Count : 0;
+                return metawear.dataHandlers.TryGetValue(key, out HashSet<Action<byte[]>> value) ? value.Count : 0;
             }
 
             public T GetModule<T>() where T : class, IModule {
-                return metawear.persistent.modules.TryGetValue(typeof(T).FullName, out IModule value) ? (T) value : null;
+                return metawear.persistent.modules.TryGetValue(typeof(T).FullName, out IModule value) ? (T)value : null;
             }
 
             public void addRegisterResponseHandler(Tuple<byte, byte> key, Action<byte[]> handler) {
@@ -364,7 +374,7 @@ namespace MbientLab.MetaWear.Impl {
             public ICollection<DataTypeBase> aggregateDataSources() {
                 var seen = new HashSet<ModuleImplBase>();
                 List<DataTypeBase> sources = new List<DataTypeBase>();
-                foreach(var m in metawear.persistent.modules.Values) {
+                foreach (var m in metawear.persistent.modules.Values) {
                     var casted = m as ModuleImplBase;
                     if (!seen.Contains(casted)) {
                         casted.aggregateDataType(sources);
@@ -393,7 +403,7 @@ namespace MbientLab.MetaWear.Impl {
             [DataMember] internal uint id;
 
             [DataMember] internal Dictionary<uint, Observer> activeObservers = new Dictionary<uint, Observer>();
-            [DataMember] internal Dictionary<uint, Route> activeRoutes= new Dictionary<uint, Route>();
+            [DataMember] internal Dictionary<uint, Route> activeRoutes = new Dictionary<uint, Route>();
             [DataMember] internal Dictionary<String, IModule> modules = new Dictionary<String, IModule>();
             [DataMember] internal Dictionary<String, DataTypeBase> namedProducers = new Dictionary<string, DataTypeBase>();
 
@@ -413,33 +423,38 @@ namespace MbientLab.MetaWear.Impl {
         private ILibraryIO io;
         private int timeForResponse;
 
-        private HashSet<Tuple<byte, byte>> dataIdHeaders= new HashSet<Tuple<byte, byte>>();
-        private Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>> dataHandlers= new Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>>();
-        private Dictionary<Tuple<Byte, Byte>, Action<byte[]>> registerResponseHandlers= new Dictionary<Tuple<Byte, Byte>, Action<byte[]>>();
+        private HashSet<Tuple<byte, byte>> dataIdHeaders = new HashSet<Tuple<byte, byte>>();
+        private Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>> dataHandlers = new Dictionary<Tuple<byte, byte, byte>, HashSet<Action<byte[]>>>();
+        private Dictionary<Tuple<Byte, Byte>, Action<byte[]>> registerResponseHandlers = new Dictionary<Tuple<Byte, Byte>, Action<byte[]>>();
 
         public Action OnUnexpectedDisconnect { get; set; }
         public string MacAddress { get => gatt.BluetoothAddress.ToString("X").Insert(2, ":").Insert(5, ":").Insert(8, ":").Insert(11, ":").Insert(14, ":"); }
         public bool InMetaBootMode { get; private set; }
         public Model? Model {
             get {
-                if (InMetaBootMode || persistent.attributes.moduleInfo.Count == 0 || persistent.attributes.modelNumber == null) {
+                if (persistent.attributes.modelNumber == null) {
                     return null;
                 }
 
+                var hasModuleInfo = !(InMetaBootMode || persistent.attributes.moduleInfo.Count() == 0);
                 if (persistent.attributes.modelNumber == "0") {
                     return MetaWear.Model.MetaWearR;
                 }
                 if (persistent.attributes.modelNumber == "1") {
-                    if (!persistent.attributes.moduleInfo[AMBIENT_LIGHT].Present || !persistent.attributes.moduleInfo[BAROMETER].Present) {
-                        return MetaWear.Model.MetaWearRG;
+                    if (hasModuleInfo) {
+                        return !persistent.attributes.moduleInfo[AMBIENT_LIGHT].Present || !persistent.attributes.moduleInfo[BAROMETER].Present ?
+                            MetaWear.Model.MetaWearRG : MetaWear.Model.MetaWearRPro;
                     }
-                    return MetaWear.Model.MetaWearRPro;
+                    return null;
                 }
                 if (persistent.attributes.modelNumber == "2") {
+                    if (!hasModuleInfo) {
+                        return null;
+                    }
                     if (persistent.attributes.moduleInfo[MAGNETOMETER].Present) {
                         return MetaWear.Model.MetaWearCPro;
                     }
-                    switch(persistent.attributes.moduleInfo[ACCELEROMETER].implementation) {
+                    switch (persistent.attributes.moduleInfo[ACCELEROMETER].implementation) {
                         case AccelerometerBmi160.IMPLEMENTATION:
                             return MetaWear.Model.MetaWearC;
                         case AccelerometerBma255.IMPLEMENTATION:
@@ -469,6 +484,10 @@ namespace MbientLab.MetaWear.Impl {
         }
         public int TimeForResponse { set => timeForResponse = Math.Max(0, Math.Min(value, 1000)); }
         public bool IsConnected { get; private set; }
+        /// <summary>
+        /// Sets a handler to receive any internal errors
+        /// </summary>
+        public Action<string, Exception> OnError { get; set; }
 
         public MetaWearBoard(IBluetoothLeGatt gatt, ILibraryIO io) {
             this.gatt = gatt;
@@ -616,7 +635,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             public void Subscribe(Action<IData> subscriber) {
-                consumer.subscriber = subscriber;
+                consumer.handler = subscriber;
             }
         }
 
@@ -691,7 +710,7 @@ namespace MbientLab.MetaWear.Impl {
                         persistent.attributes = new BoardAttributes();
                     }
                 } catch (Exception e) {
-                    io.LogWarn("metawear", "Could not deserialize board attributes", e);
+                    OnError?.Invoke("Could not deserialize board attributes", e);
                     persistent.attributes = new BoardAttributes();
                 } finally {
                     if (ins != null) ins.Dispose();
@@ -919,6 +938,32 @@ namespace MbientLab.MetaWear.Impl {
             return await taskSource.Task;
         }
 
+        private class Subscriber : ISubscriber {
+            private readonly DeviceDataConsumer consumer;
+            private readonly IModuleBoardBridge bridge;
+
+            public Subscriber(DeviceDataConsumer consumer, IModuleBoardBridge bridge) {
+                this.consumer = consumer;
+                this.bridge = bridge;
+            }
+
+            public string Identifier => consumer.source.CreateIdentifier(bridge);
+
+            public void Attach(Action<IData> handler) {
+                consumer.handler = handler;
+            }
+
+            public void Listen(Action<IData> handler = null) {
+                consumer.enableStream(bridge);
+                if (handler != null) {
+                    consumer.handler = handler;
+                }
+            }
+
+            public void Quiet() {
+                consumer.disableStream(bridge);
+            }
+        }
         [KnownType(typeof(StreamedDataConsumer))]
         [KnownType(typeof(LoggedDataConsumer))]
         [DataContract]
@@ -930,10 +975,22 @@ namespace MbientLab.MetaWear.Impl {
             [DataMember] private readonly List<string> names;
             [DataMember] private bool valid;
 
+            private ISubscriber[] subscribers = null;
+
             public uint ID => id;
 
             public bool Valid => valid;
 
+            public ISubscriber[] Subscribers => subscribers;
+
+            private void setupSubscribers() {
+                int i = 0;
+                subscribers = new ISubscriber[consumers.Count];
+                consumers.ForEach(it => {
+                    subscribers[i] = new Subscriber(it, bridge);
+                    i++;
+                });
+            }
             public Route(uint id, List<DeviceDataConsumer> consumers, Queue<byte> dataProcIds, Queue<byte> eventIds, List<string> names, IModuleBoardBridge bridge) : base(bridge) {
                 this.id = id;
                 this.consumers = consumers;
@@ -941,6 +998,8 @@ namespace MbientLab.MetaWear.Impl {
                 this.eventIds = eventIds;
                 this.names = names;
                 valid = true;
+
+                setupSubscribers();
             }
 
             internal override void restoreTransientVars(IModuleBoardBridge bridge) {
@@ -949,6 +1008,8 @@ namespace MbientLab.MetaWear.Impl {
                 foreach (DeviceDataConsumer it in consumers) {
                     it.addDataHandler(bridge);
                 }
+
+                setupSubscribers();
             }
 
             public void Remove() {
@@ -957,7 +1018,8 @@ namespace MbientLab.MetaWear.Impl {
 
             internal void Remove(bool sync) {
                 if (valid) {
-                    valid = true;
+                    subscribers = null;
+                    valid = false;
 
                     if (sync) {
                         bridge.removeRoute(id);
@@ -993,50 +1055,6 @@ namespace MbientLab.MetaWear.Impl {
                             }
                         }
                     }
-                }
-            }
-
-            public bool AttachSubscriber(int pos, Action<IData> subscriber) {
-                if (!valid) {
-                    return false;
-                }
-                try {
-                    consumers[pos].subscriber = subscriber;
-                    return true;
-                } catch (IndexOutOfRangeException) {
-                    return false;
-                }
-            }
-
-            public bool Resubscribe(int pos) {
-                if (!valid) {
-                    return false;
-                }
-                try {
-                    consumers[pos].enableStream(bridge);
-                    return true;
-                } catch (IndexOutOfRangeException) {
-                    return false;
-                }
-            }
-
-            public bool Unsubscribe(int pos) {
-                if (!valid) {
-                    return false;
-                }
-                try {
-                    consumers[pos].disableStream(bridge);
-                    return true;
-                } catch (IndexOutOfRangeException) {
-                    return false;
-                }
-            }
-
-            public string GenerateIdentifier(int pos) {
-                try {
-                    return consumers[pos].source.CreateIdentifier(bridge);
-                } catch (IndexOutOfRangeException) {
-                    return null;
                 }
             }
         }
@@ -1097,7 +1115,7 @@ namespace MbientLab.MetaWear.Impl {
                     top.Item2.state.subscribedProducers.ForEach(producer => {
                         if (logConsumers != null && producer.Item3) {
                             var logger = logConsumers.Dequeue();
-                            logger.subscriber = producer.Item2;
+                            logger.handler = producer.Item2;
                             consumers.Add(logger);
                         } else {
                             StreamedDataConsumer newConsumer = new StreamedDataConsumer(producer.Item1, producer.Item2);

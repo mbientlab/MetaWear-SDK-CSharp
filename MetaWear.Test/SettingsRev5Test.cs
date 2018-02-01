@@ -3,6 +3,7 @@ using NUnit.Framework;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class SettingsRev5Test : UnitTestBase {
         private ISettings settings;

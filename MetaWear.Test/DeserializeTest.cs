@@ -10,6 +10,7 @@ using System;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class DeserializeTest : UnitTestBase {
         public DeserializeTest() : base() {
@@ -174,7 +175,7 @@ namespace MbientLab.MetaWear.Test {
                     BitConverter.ToSingle(new byte[] { 0x00, 0x58, 0xbf, 0xbf }, 0)), 
                 actual = null;
             metawear.GetModule<IAccelerometer>().Configure(range: 16f);
-            metawear.LookupRoute(0).AttachSubscriber(0, data => actual = data.Value<Acceleration>());
+            metawear.LookupRoute(0).Subscribers[0].Attach(data => actual = data.Value<Acceleration>());
             platform.sendMockResponse(new byte[] { 0x03, 0x04, 0x16, 0xc4, 0x94, 0xa2, 0x2a, 0xd0 });
 
             Assert.That(actual, Is.Not.EqualTo(expected));

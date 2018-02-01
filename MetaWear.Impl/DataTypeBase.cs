@@ -66,13 +66,18 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public void read(IModuleBoardBridge bridge, byte[] parameters) {
+            read(bridge, eventConfig[1], parameters);
+        }
+
+        public void read(IModuleBoardBridge bridge, byte register, byte[] parameters) {
             int length = (eventConfig[2] == NO_ID ? 2 : 3);
             byte[] cmd = new byte[parameters.Length + length];
             Array.Copy(eventConfig, 0, cmd, 0, length);
             Array.Copy(parameters, 0, cmd, length, parameters.Length);
+            cmd[1] = register;
 
             bridge.sendCommand(cmd);
-        }
+         }
 
         public virtual float scale(IModuleBoardBridge bridge) {
             return (input == null) ? 1f : input.scale(bridge);
@@ -86,7 +91,7 @@ namespace MbientLab.MetaWear.Impl {
             return copy(input, DATA_PROCESSOR, Util.setRead(DataProcessor.STATE), NO_ID, attributes);
         }
 
-        public abstract IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp);
+        public abstract DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp);
         protected virtual DataTypeBase[] createSplits() {
             return null;
         }

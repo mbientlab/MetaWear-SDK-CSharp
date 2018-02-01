@@ -63,7 +63,7 @@ namespace MbientLab.MetaWear.Impl {
         internal FloatDataType(DataTypeBase input, Module module, byte register, byte id, DataAttributes attributes) :
                 base(input, module, register, id, attributes) { }
 
-        public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+        public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
             return new FloatData(logData, this, bridge, timestamp, data);
         }
 

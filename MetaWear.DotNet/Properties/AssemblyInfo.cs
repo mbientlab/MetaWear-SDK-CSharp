@@ -8,8 +8,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("MetaWear C# API for .NET framework apps")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("MbientLab")]
-[assembly: AssemblyProduct("MetaWear.DotNet")]
-[assembly: AssemblyCopyright("Copyright ©  2017")]
+[assembly: AssemblyProduct("MetaWear")]
+[assembly: AssemblyCopyright("Copyright © 2018")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -32,4 +32,4 @@ using System.Runtime.InteropServices;
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("0.3.0")]
+[assembly: AssemblyFileVersion("0.4.0")]

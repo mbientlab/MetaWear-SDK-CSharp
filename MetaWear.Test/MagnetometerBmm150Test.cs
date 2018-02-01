@@ -30,6 +30,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(MagnetometerBmm150TestFixtureData), "Params")]
     class MagnetometerBmm150Test : UnitTestBase {
         private IMagnetometerBmm150 magnetometer;

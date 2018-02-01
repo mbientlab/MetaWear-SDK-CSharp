@@ -6,6 +6,7 @@ using NUnit.Framework;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class SettingsRev2Test : UnitTestBase {
         private ISettings settings;
@@ -47,12 +48,10 @@ namespace MbientLab.MetaWear.Test {
                     new byte[] { 0x11, 0x81, 0x4d, 0x65, 0x74, 0x61, 0x57, 0x65, 0x61, 0x72 });
             platform.customResponses.Add(new byte[] { 0x11, 0x82 },
                     new byte[] { 0x11, 0x82, 0x9c, 0x02, 0x00, 0x00 });
-            platform.customResponses.Add(new byte[] { 0x11, 0x83 },
-                    new byte[] { 0x11, 0x83, 0x00 });
             platform.customResponses.Add(new byte[] { 0x11, 0x87 },
                     new byte[] { 0x11, 0x87, 0x19, 0xff, 0x6d, 0x62, 0x74, 0x68, 0x65, 0x20, 0x53, 0x63, 0x61, 0x72, 0x6c, 0x65, 0x74, 0x74, 0x20, 0x73 });
 
-            var expected = new BleAdvertisementConfig("MetaWear", 417, 0, 0,
+            var expected = new BleAdvertisementConfig("MetaWear", 417, 0,
                 new byte[] { 0x19, 0xff, 0x6d, 0x62, 0x74, 0x68, 0x65, 0x20, 0x53, 0x63, 0x61, 0x72, 0x6c, 0x65, 0x74, 0x74, 0x20, 0x73 });
 
             Assert.That(await settings.ReadBleAdConfigAsync(), Is.EqualTo(expected));

@@ -31,7 +31,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         internal void handleLogMessage(IModuleBoardBridge bridge, byte logId, DateTime timestamp, byte[] data, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
-            if (subscriber == null) {
+            if (handler == null) {
                 errorHandler?.Invoke(LogDownloadError.UNHANDLED_LOG_DATA, logId, timestamp, data);
                 return;
             }
@@ -317,7 +317,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             if (lastTimestamp.TryGetValue(resetUid, out uint previous) && previous > tick) {
-                var offset = (tick - lastTimestamp[resetUid] + (lastTimestamp[resetUid] - reference.tick)) * TICK_TIME_STEP;
+                var offset = (tick - previous + (previous - reference.tick)) * TICK_TIME_STEP;
                 reference.timestamp = reference.timestamp.AddMilliseconds((long) (offset));
                 reference.tick = tick;
                 
@@ -334,7 +334,7 @@ namespace MbientLab.MetaWear.Impl {
             var nRemainingLoggers = new Dictionary<DataTypeBase, byte>();
             var placeholder = new Dictionary<Tuple<byte, byte, byte>, byte>();
             ICollection <DataTypeBase> producers = bridge.aggregateDataSources();
-            Func<Tuple<byte, byte, byte>, byte, byte, DataTypeBase> guessLogSource = (key, offset, length) => {
+            DataTypeBase guessLogSource(Tuple<byte, byte, byte> key, byte offset, byte length) {
                 List<DataTypeBase> possible = new List<DataTypeBase>();
 
                 foreach (DataTypeBase it in producers) {
@@ -379,8 +379,8 @@ namespace MbientLab.MetaWear.Impl {
                     }
                 }
                 return null;
-            };
-            
+            }
+
             for (byte i = 0; i < bridge.lookupModuleInfo(LOGGING).extra[0]; i++) {
                 var response = await queryLogConfigTask.Execute("Querying log configuration (id = " + i + ") timed out after {0}ms", bridge.TimeForResponse,
                     () => bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(TRIGGER), i }));
@@ -400,14 +400,15 @@ namespace MbientLab.MetaWear.Impl {
 
                         while (chain.Count() != 0) {
                             var current = chain.Pop();
-                            var next = type.transform(DataProcessorConfig.from(bridge.getFirmware(), bridge.lookupModuleInfo(DATA_PROCESSOR).revision, current.config));
+                            var currentConfigObj = DataProcessorConfig.from(bridge.getFirmware(), bridge.lookupModuleInfo(DATA_PROCESSOR).revision, current.config);
+                            var next = type.transform(currentConfigObj);
 
                             next.Item1.eventConfig[2] = current.id;
                             if (next.Item2 != null) {
                                 next.Item2.eventConfig[2] = current.id;
                             }
                             if (!dataprocessor.activeProcessors.ContainsKey(current.id)) {
-                                dataprocessor.activeProcessors.Add(current.id, Tuple.Create(next.Item2, new NullEditor(current.config, type, bridge) as EditorImplBase));
+                                dataprocessor.activeProcessors.Add(current.id, Tuple.Create(next.Item2, new NullEditor(currentConfigObj, type, bridge) as EditorImplBase));
                             }
 
                             type = next.Item1;

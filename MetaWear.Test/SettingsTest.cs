@@ -14,6 +14,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(SettingsTestFixtureData), "Params")]
     class SettingsTest : UnitTestBase {
         private ISettings settings;
@@ -43,7 +44,7 @@ namespace MbientLab.MetaWear.Test {
         public void SetTxPower() {
             byte[][] expected = { new byte[] { 0x11, 0x03, 0xec } };
 
-            settings.EditBleAdConfig(txPower: -20);
+            settings.SetTxPower(-20);
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 

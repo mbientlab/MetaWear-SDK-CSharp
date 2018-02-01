@@ -4,6 +4,7 @@ using NUnit.Framework;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     internal class LedTest : UnitTestBase {
         private ILed led;

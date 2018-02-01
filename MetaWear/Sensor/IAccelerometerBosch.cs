@@ -20,9 +20,9 @@ namespace MbientLab.MetaWear.Sensor {
             /// <summary>
             /// Default mode
             /// </summary>
-            SYMMETRICAL,
-            HIGH_ASYMMETRICAL,
-            LOW_ASYMMETRICAL
+            Symmetrical,
+            HighAsymmetrical,
+            LowAsymmetrical
         }
         /// <summary>
         /// On-board algorithm that detects changes in the sensor's orientation.

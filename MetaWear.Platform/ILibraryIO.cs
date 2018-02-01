@@ -20,13 +20,5 @@ namespace MbientLab.MetaWear.Platform {
         /// <param name="key">Key value identifying the data</param>
         /// <returns>Stream to read the data</returns>
         Task<Stream> LocalLoadAsync(string key);
-
-        /// <summary>
-        /// Outputs a warn level message to the logger
-        /// </summary>
-        /// <param name="tag">Value identifying the message</param>
-        /// <param name="message">Message to log</param>
-        /// <param name="e">Additional information to provide to the logger</param>
-        void LogWarn(String tag, String message, Exception e);
     }
 }

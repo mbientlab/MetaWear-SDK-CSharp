@@ -32,6 +32,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class BarometerBmp280StandbyTest : UnitTestBase {
         private IBarometerBmp280 barometer;

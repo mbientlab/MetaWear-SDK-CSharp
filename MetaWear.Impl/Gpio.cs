@@ -47,14 +47,37 @@ namespace MbientLab.MetaWear.Impl {
                 return bridge.queueRouteBuilder(builder, analogDataType);
             }
 
-            public void Read(byte pullup = 255, byte pulldown = 255, ushort delay = 0, byte virtualPin = 255) {
+            public void Read(byte pullup = 255, byte pulldown = 255, ushort delay = 0) {
                 var info = bridge.lookupModuleInfo(GPIO);
 
                 if (info.revision >= REVISION_ENHANCED_ANALOG) {
-                    analogDataType.read(bridge, new byte[] { pullup, pulldown, (byte)(delay / 4), virtualPin });
+                    analogDataType.read(bridge, new byte[] { pullup, pulldown, (byte)(delay / 4), 255 });
                 } else {
                     analogDataType.read(bridge);
                 }
+            }
+
+            void IForcedDataProducer.Read() {
+                Read();
+            }
+        }
+
+        private class GpioVirtualAnalogDataProducer : IAnalogDataProducer {
+            private DataTypeBase source, analogDataType;
+            private IModuleBoardBridge bridge;
+
+            internal GpioVirtualAnalogDataProducer(DataTypeBase source, byte pin, IModuleBoardBridge bridge) {
+                this.source = source;
+                this.bridge = bridge;
+                analogDataType = source.copy(source.input, GPIO, source.eventConfig[1], pin, source.attributes); ;
+            }
+
+            public Task<IRoute> AddRouteAsync(Action<IRouteComponent> builder) {
+                return bridge.queueRouteBuilder(builder, analogDataType);
+            }
+
+            public void Read(byte pullup = 255, byte pulldown = 255, ushort delay = 0) {
+                source.read(bridge, analogDataType.eventConfig[1], new byte[] { pullup, pulldown, (byte)(delay / 4), analogDataType.eventConfig[2] });
             }
 
             void IForcedDataProducer.Read() {
@@ -161,46 +184,56 @@ namespace MbientLab.MetaWear.Impl {
                         break;
                 }
             }
+
+            public IVirtualPin CreateVirtualPin(byte pin) {
+                var gpio = bridge.GetModule<IGpio>() as Gpio;
+                if (gpio.virtualPins.TryGetValue(pin, out var virtualPin)) {
+                    return virtualPin;
+                }
+
+                var newPin = new GpioVirtualPin(adc, absRef, pin, bridge);
+                gpio.virtualPins.Add(pin, newPin);
+
+                return newPin;
+            }
         }
 
         private class GpioVirtualPin : IVirtualPin {
+            private byte pin;
             private IModuleBoardBridge bridge;
-            private DataProducer adc, absRef;
+            private IAnalogDataProducer adc, absRef;
             internal DataTypeBase adcType, absRefType;
 
-            public IDataProducer Adc {
+            public IAnalogDataProducer Adc {
                 get {
                     if (adc == null) {
-                        adc = new DataProducer(adcType, bridge);
+                        adc = new GpioVirtualAnalogDataProducer(adcType, pin, bridge);
                     }
                     return adc;
                 }
             }
 
-            public IDataProducer AbsoluteReference {
+            public IAnalogDataProducer AbsoluteReference {
                 get {
                     if (absRef == null) {
-                        absRef = new DataProducer(absRefType, bridge);
+                        absRef = new GpioVirtualAnalogDataProducer(absRefType, pin, bridge);
                     }
                     return absRef;
                 }
             }
 
-            internal GpioVirtualPin(byte pin, IModuleBoardBridge bridge) {
-                adcType = new IntegralDataType(GPIO, Util.setRead(READ_AI_ADC), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false));
-                absRefType = new MilliUnitsFloatDataType(GPIO, Util.setRead(READ_AI_ABS_REF), pin, new DataAttributes(new byte[] { 2 }, 1, 0, false));
+            internal GpioVirtualPin(DataTypeBase adc, DataTypeBase absRef, byte pin, IModuleBoardBridge bridge) {
+                adcType = adc;
+                absRefType = absRef;
+                this.pin = pin;
                 this.bridge = bridge;
             }
         }
 
         [DataMember] private List<IPin> pins;
-        private Dictionary<byte, IVirtualPin> virtualPins = new Dictionary<byte, IVirtualPin>();
+        internal Dictionary<byte, IVirtualPin> virtualPins = new Dictionary<byte, IVirtualPin>();
 
-        public List<IPin> Pins {
-            get {
-                return pins;
-            }
-        }
+        public List<IPin> Pins => pins;
 
         public Gpio(IModuleBoardBridge bridge) : base(bridge) {
             var info = bridge.lookupModuleInfo(GPIO);
@@ -230,10 +263,11 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             foreach (var p in virtualPins.Values) {
-                if ((p as GpioVirtualPin).adcType != null) {
+                var vPin = p as GpioVirtualPin;
+                if (vPin.adcType != null) {
                     collection.Add((p as GpioVirtualPin).adcType);
                 }
-                if ((p as GpioVirtualPin).absRefType != null) {
+                if (vPin.absRefType != null) {
                     collection.Add((p as GpioVirtualPin).absRefType);
                 }
             }
@@ -243,17 +277,6 @@ namespace MbientLab.MetaWear.Impl {
             foreach (GpioPin it in pins) {
                 it.restoreTransientVars(bridge);
             }
-        }
-
-        public IVirtualPin CreateVirtualPin(byte pin) {
-            if (virtualPins.TryGetValue(pin, out var virtualPin)) {
-                return virtualPin;
-            }
-
-            var newPin = new GpioVirtualPin(pin, bridge);
-            virtualPins.Add(pin, newPin);
-
-            return newPin;
         }
     }
 }

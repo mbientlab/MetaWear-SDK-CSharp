@@ -23,6 +23,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class AmbientLightLtr329Test : UnitTestBase {
         private IAmbientLightLtr329 als;

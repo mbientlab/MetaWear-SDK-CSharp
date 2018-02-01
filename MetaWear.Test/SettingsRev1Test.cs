@@ -4,6 +4,7 @@ using System;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class SettingsRev1Test : UnitTestBase {
         private ISettings settings;

@@ -18,6 +18,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixtureSource(typeof(MetaWearBoardTestFixtureData), "Params")]
     class MetaWearBoardTest : UnitTestBase {
         private Model model;
@@ -28,6 +29,7 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public async Task SerializeAsync() {
+            platform.fileSuffix = string.Format("{0}_serialize_test", model.ToString());
             await metawear.SerializeAsync();
         }
 

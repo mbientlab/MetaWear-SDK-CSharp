@@ -23,6 +23,7 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
+    [Parallelizable]
     [TestFixture]
     class GyroBmi160Test : UnitTestBase {
         private IGyroBmi160 gyro;

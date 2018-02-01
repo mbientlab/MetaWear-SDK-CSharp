@@ -34,6 +34,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestAcceleration : TestBase {
             public TestAcceleration() : base() {
@@ -80,6 +81,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestGyroY : TestBase {
             public TestGyroY() : base() {
@@ -129,6 +131,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestSplitImu : TestBase {
             public TestSplitImu() : base() {
@@ -184,6 +187,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestMultipleLoggers : TestBase {
             public TestMultipleLoggers() : base() {
@@ -216,6 +220,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestActivity : TestBase {
             public TestActivity() : base() {   
@@ -286,6 +291,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestQuaternionLimiter : TestBase {
             public TestQuaternionLimiter() : base() {      
@@ -325,6 +331,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestTimeout : UnitTestBase {
             public TestTimeout() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch), typeof(ILogging), typeof(IDataProcessor)) {
@@ -368,6 +375,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixture]
         class TestBmi160StepCounter : TestBase {
             public TestBmi160StepCounter() : base() {

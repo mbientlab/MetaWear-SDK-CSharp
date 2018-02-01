@@ -29,7 +29,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new Bmm150CartesianFloatData(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new MagneticFieldData(bridge, this, timestamp, data);
             }
 

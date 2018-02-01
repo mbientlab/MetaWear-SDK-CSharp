@@ -5,6 +5,7 @@ using System;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class SPITest : UnitTestBase {
         private ISPIDataProducer spi;

@@ -4,6 +4,7 @@ using NUnit.Framework;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class TemperatureTest : UnitTestBase {
         static object[] Channels = {

@@ -69,7 +69,7 @@ namespace MbientLab.MetaWear.Impl {
                 return new BatteryStateDataType(input, module, register, id, attributes);
             }
 
-            public override IData createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
+            public override DataBase createData(bool logData, IModuleBoardBridge bridge, byte[] data, DateTime timestamp) {
                 return new BatteryStateData(bridge, this, timestamp, data);
             }
 
@@ -81,7 +81,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        private TimedTask<byte[]> readAdConfigTask, readConnParamsTask;
+        private TimedTask<byte[]> readAdConfigTask, readConnParamsTask, readTxPowerTask;
 
         private IForcedDataProducer batteryProducer;
         private ActiveDataProducer<byte> powerStatusProducer, chargeStatusProducer;
@@ -145,9 +145,10 @@ namespace MbientLab.MetaWear.Impl {
         protected override void init() {
             readAdConfigTask = new TimedTask<byte[]>();
             readConnParamsTask = new TimedTask<byte[]>();
+            readTxPowerTask = new TimedTask<byte[]>();
 
             bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(DEVICE_NAME)), response => readAdConfigTask.SetResult(response));
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(TX_POWER)), response => readAdConfigTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(TX_POWER)), response => readTxPowerTask.SetResult(response));
             bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(SCAN_RESPONSE)), response => readAdConfigTask.SetResult(response));
             bridge.addRegisterResponseHandler(Tuple.Create((byte)SETTINGS, Util.setRead(AD_INTERVAL)), response => readAdConfigTask.SetResult(response));
 
@@ -199,17 +200,13 @@ namespace MbientLab.MetaWear.Impl {
                 timeout = response[4];
             }
 
-            response = await readAdConfigTask.Execute("Did not received tx power within {0}ms", bridge.TimeForResponse,
-                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(TX_POWER) }));
-            var txPower = (sbyte)response[2];
-
             response = await readAdConfigTask.Execute("Did not received scan response within {0}ms", bridge.TimeForResponse,
                 () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(SCAN_RESPONSE) }));
 
             var scanResponse = new byte[response.Length - 2];
             Array.Copy(response, 2, scanResponse, 0, scanResponse.Length);
 
-            return new BleAdvertisementConfig(deviceName, interval, timeout, txPower, scanResponse);
+            return new BleAdvertisementConfig(deviceName, interval, timeout, scanResponse);
         }
 
         public async Task<BleConnectionParameters> ReadBleConnParamsAsync() {
@@ -226,7 +223,7 @@ namespace MbientLab.MetaWear.Impl {
             }
         }
 
-        public void EditBleAdConfig(string name = null, byte? timeout = null, ushort? interval = null, sbyte? txPower = null, byte[] scanResponse = null) {
+        public void EditBleAdConfig(string name = null, byte? timeout = null, ushort? interval = null, byte[] scanResponse = null) {
             if (name != null) {
                 bridge.sendCommand(SETTINGS, DEVICE_NAME, Encoding.ASCII.GetBytes(name));
             }
@@ -253,10 +250,6 @@ namespace MbientLab.MetaWear.Impl {
                 bridge.sendCommand(SETTINGS, AD_INTERVAL, config);
             }
 
-            if (txPower != null) {
-                bridge.sendCommand(new byte[] { (byte) SETTINGS, TX_POWER, (byte)txPower });
-            }
-
             if (scanResponse != null) {
                 if (scanResponse.Length >= MetaWearBoard.COMMAND_LENGTH) {
                     byte[] first = new byte[13], second = new byte[scanResponse.Length - 13];
@@ -273,6 +266,16 @@ namespace MbientLab.MetaWear.Impl {
 
         public void StartBleAdvertising() {
             bridge.sendCommand(new byte[] { (byte)SETTINGS, START_ADVERTISING });
+        }
+
+        public async Task<sbyte> ReadTxPowerAsync() {
+            var response = await readTxPowerTask.Execute("Did not received tx power within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)SETTINGS, Util.setRead(TX_POWER) }));
+            return (sbyte)response[2];
+        }
+
+        public void SetTxPower(sbyte power) {
+            bridge.sendCommand(new byte[] { (byte)SETTINGS, TX_POWER, (byte)power });
         }
     }
 }

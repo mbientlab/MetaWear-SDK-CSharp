@@ -31,6 +31,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestLowHigh : TestBase {
             public TestLowHigh(Type accType) : base(accType) {
@@ -100,12 +101,12 @@ namespace MbientLab.MetaWear.Test {
             }
 
             static object[] HighResponses = {
-                new object[] { new LowHighG(true, false, false, true, false, Data.Sign.Negative), new byte[] { 0x03, 0x08, 0x29 } },
-                new object[] { new LowHighG(true, false, false, true, false, Data.Sign.Positive), new byte[] { 0x03, 0x08, 0x09 } },
-                new object[] { new LowHighG(true, false, false, false, true, Data.Sign.Negative), new byte[] { 0x03, 0x08, 0x31 } },
-                new object[] { new LowHighG(true, false, false, false, true, Data.Sign.Positive), new byte[] { 0x03, 0x08, 0x11 } },
-                new object[] { new LowHighG(true, false, true, false, false, Data.Sign.Positive), new byte[] { 0x03, 0x08, 0x05 } },
-                new object[] { new LowHighG(true, false, true, false, false, Data.Sign.Negative), new byte[] { 0x03, 0x08, 0x25 } }
+                new object[] { new LowHighG(true, false, false, true, false, Sign.Negative), new byte[] { 0x03, 0x08, 0x29 } },
+                new object[] { new LowHighG(true, false, false, true, false, Sign.Positive), new byte[] { 0x03, 0x08, 0x09 } },
+                new object[] { new LowHighG(true, false, false, false, true, Sign.Negative), new byte[] { 0x03, 0x08, 0x31 } },
+                new object[] { new LowHighG(true, false, false, false, true, Sign.Positive), new byte[] { 0x03, 0x08, 0x11 } },
+                new object[] { new LowHighG(true, false, true, false, false, Sign.Positive), new byte[] { 0x03, 0x08, 0x05 } },
+                new object[] { new LowHighG(true, false, true, false, false, Sign.Negative), new byte[] { 0x03, 0x08, 0x25 } }
             };
             [TestCaseSource("HighResponses")]
             public async Task HandleHighResponse(LowHighG expected, byte[] response) {
@@ -118,6 +119,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestFlat : TestBase {
             public TestFlat(Type accType) : base(accType) {
@@ -160,6 +162,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestFlatRev2 : TestFlat {
             public TestFlatRev2(Type accType) : base(accType) {
@@ -181,6 +184,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestNoMotion : TestBase {
             public TestNoMotion(Type accType) : base(accType) { }
@@ -227,6 +231,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestSlowMotion : TestBase {
             public TestSlowMotion(Type accType) : base(accType) { }
@@ -272,6 +277,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestAnyMotion : TestBase {
             public TestAnyMotion(Type accType) : base(accType) { }
@@ -325,6 +331,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestOrientation : TestBase {
             public TestOrientation(Type accType) : base(accType) { }
@@ -349,7 +356,7 @@ namespace MbientLab.MetaWear.Test {
                 Assert.That(platform.GetCommands(), Is.EqualTo(expected));
             }
 
-            static object[] OrientationnResponses = {
+            static object[] OrientationResponses = {
                 new object[] { SensorOrientation.FaceUpLandscapeRight, new byte[] { 0x03, 0x11, 0x07 } },
                 new object[] { SensorOrientation.FaceUpPortraitUpright, new byte[] { 0x03, 0x11, 0x01 } },
                 new object[] { SensorOrientation.FaceUpPortraitUpsideDown, new byte[] { 0x03, 0x11, 0x03 } },
@@ -359,7 +366,7 @@ namespace MbientLab.MetaWear.Test {
                 new object[] { SensorOrientation.FaceDownPortraitUpright, new byte[] { 0x03, 0x11, 0x09 } },
                 new object[] { SensorOrientation.FaceDownPortraitUpsideDown, new byte[] { 0x03, 0x11, 0x0b } }
             };
-            [TestCaseSource("OrientationnResponses")]
+            [TestCaseSource("OrientationResponses")]
             public async Task HandleData(SensorOrientation expected, byte[] response) {
                 SensorOrientation? actual = null;
 
@@ -370,6 +377,7 @@ namespace MbientLab.MetaWear.Test {
             }
         }
 
+        [Parallelizable]
         [TestFixtureSource(typeof(AccelerometerBoschTestFixtureData), "Params")]
         class TestTap : TestBase {
             public TestTap(Type accType) : base(accType) { }

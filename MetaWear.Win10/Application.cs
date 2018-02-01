@@ -34,10 +34,6 @@ namespace MbientLab.MetaWear.Win10 {
                 return await folder.OpenStreamForReadAsync(string.Format("{0}.bin", key));
             }
 
-            public void LogWarn(string tag, string message, Exception e) {
-                System.Diagnostics.Debug.WriteLine(string.Format("{0}: {1}\r\n{2}", tag, message, e.StackTrace));
-            }
-
             public async Task LocalSaveAsync(string key, byte[] data) {
                 StorageFolder root, folder;
 
@@ -53,10 +49,6 @@ namespace MbientLab.MetaWear.Win10 {
 #else
             public async Task<Stream> LocalLoadAsync(string key) {
                 return await Task.FromResult(File.Open(Path.Combine(Directory.GetCurrentDirectory(), cachePath, macAddr, key), FileMode.Open));
-            }
-
-            public void LogWarn(string tag, string message, Exception e) {
-                Console.WriteLine(string.Format("{0}: {1}\r\n{2}", tag, message, e.StackTrace));
             }
 
             public Task LocalSaveAsync(string key, byte[] data) {

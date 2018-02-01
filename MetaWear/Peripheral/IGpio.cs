@@ -39,11 +39,10 @@ namespace MbientLab.MetaWear.Peripheral {
             /// <param name="pullup">Pin to be pulled up before the read, unused by default</param>
             /// <param name="pulldown">Pin to be pulled down before the read, unused by default</param>
             /// <param name="delay">How long to wait before reading from the pin, no delay by default</param>
-            /// <param name="virtualPin">Directs read data to the specific virtual pin</param>
-            void Read(byte pullup = 0xff, byte pulldown = 0xff, ushort delay = 0, byte virtualPin = 0xff);
+            void Read(byte pullup = 0xff, byte pulldown = 0xff, ushort delay = 0);
         }
         /// <summary>
-        /// Represents a physical GPIO pin
+        /// Physical GPIO pin on the board
         /// </summary>
         public interface IPin {
             /// <summary>
@@ -81,19 +80,26 @@ namespace MbientLab.MetaWear.Peripheral {
             /// Set the pin's output voltage i.e. logical high
             /// </summary>
             void SetOutput();
+
+            /// <summary>
+            /// Creates a virtual pin
+            /// </summary>
+            /// <param name="pin">Pin number to associate the virtual pin with, between [Pins.Length, 254]</param>
+            /// <returns>Object representing the virtual pin</returns>
+            IVirtualPin CreateVirtualPin(byte pin);
         }
         /// <summary>
-        /// Represents a virtual pin used by the <see cref="IAnalogDataProducer.Read(byte, byte, ushort, byte)"/> function
+        /// Abstract pin used for handling gpio reads with different parameters
         /// </summary>
         public interface IVirtualPin {
             /// <summary>
             /// Data producer representing analog ADC data
             /// </summary>
-            IDataProducer Adc { get; }
+            IAnalogDataProducer Adc { get; }
             /// <summary>
             /// Data producer representing absolute reference data
             /// </summary>
-            IDataProducer AbsoluteReference { get; }
+            IAnalogDataProducer AbsoluteReference { get; }
         }
     }
     
@@ -105,11 +111,5 @@ namespace MbientLab.MetaWear.Peripheral {
         /// All physical GPIO pins on the board
         /// </summary>
         List<IPin> Pins { get; }
-        /// <summary>
-        /// Creates a virtual pin
-        /// </summary>
-        /// <param name="pin">Pin number to associate the virtual pin with, between [Pins.Length, 254]</param>
-        /// <returns>Object representing the virtual pin</returns>
-        IVirtualPin CreateVirtualPin(byte pin);
     }
 }

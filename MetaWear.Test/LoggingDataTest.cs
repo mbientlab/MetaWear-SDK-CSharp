@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace MbientLab.MetaWear.Test {
+    [Parallelizable]
     [TestFixture]
     class LoggingDataTest : UnitTestBase {
         private ILogging logging;
@@ -125,31 +126,6 @@ namespace MbientLab.MetaWear.Test {
             route.Remove();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected).Within(0.001f));
-        }
-
-        [Test]
-        public async Task CheckRolloverAsync() {
-            int actual = 0;
-            DateTime? prev = null;
-            var route = await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log(data => {
-                if (prev != null) {
-                    actual = Convert.ToInt32((data.Timestamp - prev.Value).TotalMilliseconds);
-                }
-                prev = data.Timestamp;
-            }));
-
-            var task = logging.DownloadAsync();
-
-            platform.sendMockResponse(new byte[] { 0x0b, 0x84, 0x15, 0x04, 0x00, 0x00, 0x05 });
-            platform.sendMockResponse(new byte[] { 11, 7,
-                0xa1, 0xff, 0xff, 0xff, 0xff, 0x91, 0xef, 0, 0,
-                0xa0, 0xff, 0xff, 0xff, 0xff, 0x80, 0xff, 0xb7, 0xff });
-            platform.sendMockResponse(new byte[] { 11, 7, 0xa1, 13, 0, 0, 0, 116, 0xef, 0, 0, 0xa0, 13, 0, 0, 0, 125, 0xff, 0xba, 0xff });
-            platform.sendMockResponse(new byte[] { 11, 8, 0, 0, 0, 0 });
-
-            await task;
-
-            Assert.That(actual, Is.EqualTo(21));
         }
     }
 }
