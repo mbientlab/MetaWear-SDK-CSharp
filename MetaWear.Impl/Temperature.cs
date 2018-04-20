@@ -32,7 +32,7 @@ namespace MbientLab.MetaWear.Impl {
         [KnownType(typeof(TemperatureFloatData))]
         [DataContract]
         private class TemperatureSensor : ForcedDataProducer, ISensor {
-            private readonly SensorType type;
+            [DataMember] private readonly SensorType type;
 
             public SensorType Type {
                 get {

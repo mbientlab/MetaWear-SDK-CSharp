@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
+    [KnownType(typeof(HumidityFLoatData))]
     [DataContract]
     class HumidityBme280 : ModuleImplBase, IHumidityBme280 {
         private const byte VALUE = 1, MODE = 2;
