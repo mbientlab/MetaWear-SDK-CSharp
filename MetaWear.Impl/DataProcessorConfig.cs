@@ -143,7 +143,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             internal override string CreateIdentifier(bool state, byte procId) {
-                return string.Format("{0}?id={1]", hpf ? "high-pass" : "low-pass", procId);
+                return string.Format("{0}?id={1}", hpf ? "high-pass" : "low-pass", procId);
             }
         }
 
