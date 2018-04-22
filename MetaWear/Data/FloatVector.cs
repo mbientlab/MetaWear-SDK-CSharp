@@ -18,6 +18,10 @@ namespace MbientLab.MetaWear.Data {
             vector = new float[] { x0, x1, x2, x3 };
         }
 
+        public float this[int i] {
+            get { return vector[i]; }
+        }
+
         public override bool Equals(Object obj) {
             if (this == obj) return true;
             if (obj == null || GetType() != obj.GetType()) return false;

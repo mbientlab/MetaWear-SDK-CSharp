@@ -2,6 +2,7 @@
 using MbientLab.MetaWear.Sensor;
 using NUnit.Framework;
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -141,7 +142,7 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public void InterruptDownload() {
-            Assert.ThrowsAsync <TaskCanceledException>(async () => {
+            Assert.ThrowsAsync <IOException>(async () => {
                 try {
                     var task = logging.DownloadAsync(20, (nEntries, totalEntries) => { });
                     new Timer(e => metawear.GetModule<IDebug>().DisconnectAsync(), null, 0, 5000L);

@@ -261,7 +261,11 @@ namespace MbientLab.MetaWear.Test {
             }
 
             foreach (var k in actual.Keys) {
-                Assert.That(actual[k], Is.EqualTo(expected[k]));
+                if (actual[k] is IDictionary && expected[k] is IDictionary) {
+                    CompareDictionary(actual[k] as IDictionary, expected[k] as IDictionary);
+                } else {
+                    Assert.That(actual[k], Is.EqualTo(expected[k]));
+                }
             }
         }
 

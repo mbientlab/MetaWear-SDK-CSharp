@@ -85,26 +85,18 @@ namespace MbientLab.MetaWear.Peripheral {
         /// Configure IBeacon advertising settings.  Parameters that are not set will be ignored.
         /// </summary>
         /// <param name="uuid">IBeacon UUID</param>
-        /// <param name="major">IBeacon major value</param>
-        /// <param name="minor">IBeacon minor value</param>
+        /// <param name="major">IBeacon major value, takes precedence over the <code>majorToken</code> parameter</param>
+        /// <param name="majorToken">Data token representing the sensor data to use as the new major value</param>
+        /// <param name="minor">IBeacon minor value, takes precedence over the <code>minorToken</code> parameter</param>
+        /// <param name="minorToken">Data token representing the sensor data to use as the new minor value</param>
         /// <param name="txPower">IBeacon transmitting power</param>
         /// <param name="rxPower">IBeacon receiving power</param>
         /// <param name="period">IBeacon advertising period, in milliseconds (ms)</param>
         void Configure(Guid? uuid = null, 
             ushort? major = null, ushort? minor = null, 
+            IDataToken majorToken = null, IDataToken minorToken = null,
             sbyte? txPower = null, sbyte? rxPower = null, 
             ushort? period = null);
-        
-        /// <summary>
-        /// Set the advertising major value
-        /// </summary>
-        /// <param name="major">Data token representing the sensor data to use as the new major value</param>
-        void SetMajor(IDataToken major);
-        /// <summary>
-        /// Set the advertising minor value
-        /// </summary>
-        /// <param name="minor">Data token representing the sensor data to use as the new minor value</param>
-        void SetMinor(IDataToken minor);
         
         /// <summary>
         /// Read the current IBeacon configuration

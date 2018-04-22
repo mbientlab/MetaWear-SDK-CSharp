@@ -1,5 +1,4 @@
 ﻿using MbientLab.MetaWear.Core.Settings;
-using MbientLab.MetaWear.Impl;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -73,8 +72,8 @@ namespace MbientLab.MetaWear.Core {
             }
 
             public override string ToString() {
-                return string.Format("{{Device Name: {0}, Adv Interval: {1:d}, Adv Timeout: {2:d}, Scan Response: {3}{4}", 
-                    DeviceName, Interval, Timeout, Util.arrayToHexString(ScanResponse), "}");
+                return string.Format("{{Device Name: {0}, Adv Interval: {1:d}, Adv Timeout: {2:d}, Scan Response: [0x{3}]{4}",
+                    DeviceName, Interval, Timeout, BitConverter.ToString(ScanResponse).ToLower().Replace("-", ", 0x"), "}");
             }
 
             public override bool Equals(Object obj) {

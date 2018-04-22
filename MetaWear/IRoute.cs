@@ -24,6 +24,12 @@ namespace MbientLab.MetaWear {
         ISubscriber[] Subscribers { get; }
 
         /// <summary>
+        /// Retrieve the subscriber associated with the user defined name.
+        /// </summary>
+        /// <param name="name">Value that matches the parameter given to <see cref="IRouteComponent.Name(string)"/> component</param>
+        /// <returns>Object corresponding to the name, null if no subscriber can be found</returns>
+        ISubscriber LookupSubscriber(string name);
+        /// <summary>
         /// Removes the route and marks the object as invalid
         /// </summary>
         void Remove();

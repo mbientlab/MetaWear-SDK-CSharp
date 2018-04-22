@@ -3,36 +3,21 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27004.2009
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "MetaWear", "MetaWear\MetaWear.shproj", "{ECC695E9-A3AE-49DB-B66C-911AB5842D0A}"
-EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "MetaWear.Impl", "MetaWear.Impl\MetaWear.Impl.shproj", "{28AC4A04-B008-4057-96AE-9E6482793C1C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.DotNet", "MetaWear.DotNet\MetaWear.DotNet.csproj", "{0DE30138-2666-4991-A572-3B3914A53146}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.Win10.DotNet", "MetaWear.Win10.DotNet\MetaWear.Win10.DotNet.csproj", "{0DE30138-2666-4991-A572-3B3914A53146}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.Test", "MetaWear.Test\MetaWear.Test.csproj", "{8B19D12F-867B-40B1-BAB9-C9BF953AD6D4}"
 EndProject
 Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "MetaWear.Win10", "MetaWear.Win10\MetaWear.Win10.shproj", "{272AFD1E-B093-4A4B-8F30-B51BF47D3FD5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.Uwp", "MetaWear.Uwp\MetaWear.Uwp.csproj", "{06E0C04F-2FE9-43A0-A816-A64BA57A7AA6}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.Win10.Uwp", "MetaWear.Win10.Uwp\MetaWear.Win10.Uwp.csproj", "{06E0C04F-2FE9-43A0-A816-A64BA57A7AA6}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "MetaWear.Platform", "MetaWear.Platform\MetaWear.Platform.shproj", "{345A43DC-B35D-4B53-B263-D0DFECCF2050}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear.DotNetStandard", "MetaWear.DotNetStandard\MetaWear.DotNetStandard.csproj", "{CB9B2162-4B0A-44AF-91AF-98F725FA7656}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MetaWear", "MetaWear\MetaWear.csproj", "{1E16EC87-D000-490F-BAFF-9BC0975406E7}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		MetaWear.Impl\MetaWear.Impl.projitems*{06e0c04f-2fe9-43a0-a816-a64ba57a7aa6}*SharedItemsImports = 4
-		MetaWear.Platform\MetaWear.Platform.projitems*{06e0c04f-2fe9-43a0-a816-a64ba57a7aa6}*SharedItemsImports = 4
 		MetaWear.Win10\MetaWear.Win10.projitems*{06e0c04f-2fe9-43a0-a816-a64ba57a7aa6}*SharedItemsImports = 4
-		MetaWear\MetaWear.projitems*{06e0c04f-2fe9-43a0-a816-a64ba57a7aa6}*SharedItemsImports = 4
-		MetaWear.Impl\MetaWear.Impl.projitems*{0de30138-2666-4991-a572-3b3914a53146}*SharedItemsImports = 4
-		MetaWear.Platform\MetaWear.Platform.projitems*{0de30138-2666-4991-a572-3b3914a53146}*SharedItemsImports = 4
 		MetaWear.Win10\MetaWear.Win10.projitems*{0de30138-2666-4991-a572-3b3914a53146}*SharedItemsImports = 4
-		MetaWear\MetaWear.projitems*{0de30138-2666-4991-a572-3b3914a53146}*SharedItemsImports = 4
 		MetaWear.Win10\MetaWear.Win10.projitems*{272afd1e-b093-4a4b-8f30-b51bf47d3fd5}*SharedItemsImports = 13
-		MetaWear.Impl\MetaWear.Impl.projitems*{28ac4a04-b008-4057-96ae-9e6482793c1c}*SharedItemsImports = 13
-		MetaWear.Platform\MetaWear.Platform.projitems*{345a43dc-b35d-4b53-b263-d0dfeccf2050}*SharedItemsImports = 13
-		MetaWear\MetaWear.projitems*{ecc695e9-a3ae-49db-b66c-911ab5842d0a}*SharedItemsImports = 13
 	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -93,22 +78,22 @@ Global
 		{06E0C04F-2FE9-43A0-A816-A64BA57A7AA6}.Release|x64.Build.0 = Release|x64
 		{06E0C04F-2FE9-43A0-A816-A64BA57A7AA6}.Release|x86.ActiveCfg = Release|x86
 		{06E0C04F-2FE9-43A0-A816-A64BA57A7AA6}.Release|x86.Build.0 = Release|x86
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|ARM.ActiveCfg = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|ARM.Build.0 = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|x64.Build.0 = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Debug|x86.Build.0 = Debug|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|ARM.ActiveCfg = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|ARM.Build.0 = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|x64.ActiveCfg = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|x64.Build.0 = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|x86.ActiveCfg = Release|Any CPU
-		{CB9B2162-4B0A-44AF-91AF-98F725FA7656}.Release|x86.Build.0 = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|ARM.Build.0 = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|x64.Build.0 = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Debug|x86.Build.0 = Debug|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|ARM.ActiveCfg = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|ARM.Build.0 = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|x64.ActiveCfg = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|x64.Build.0 = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|x86.ActiveCfg = Release|Any CPU
+		{1E16EC87-D000-490F-BAFF-9BC0975406E7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

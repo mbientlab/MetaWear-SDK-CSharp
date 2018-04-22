@@ -1,31 +1,27 @@
 # MetaWear C# SDK
-SDK for creating MetaWear apps using C# 7.0 and Visual Studio 2017.  
+SDK for creating MetaWear apps using C#.  
 
-Three builds of the C# SDK are available targeting:
-
-* Universal Windows Platform (10.0.16299.0)
-* .NET Framework (4.6.2)
-* .NET Standard (2.0).  
-
-Unlike the former two, the .NET Standard build is a platform agnostic API that does not contain any Bluetooth LE or IO code.  Developers using this build, such as in a 
-Xamarin Forms project, will need to plugin their own Bluetooth LE library to implement the interfaces defined in the 
-[Mbientlab.MetaWear.Platform](https://github.com/mbientlab/MetaWear-SDK-CSharp/tree/master/MetaWear.Platform) namespace.
+The SDK is distributed on NuGet as a platform agnostic, .NET Standard 2.0 assembly.  Due to its platform agnostic nature, developers will need to plugin their own 
+BLE stack and file i/o code specific for their target environment by implementing the interfaces defined in the 
+[MbientLab.MetaWear.Impl.Platform](https://mbientlab.com/documents/metawear/csharp/1/namespaceMbientLab_1_1MetaWear_1_1Impl_1_1Platform.html).
 
 # Install
-The C# SDK is distributed via NuGet and can be installed with the package manager console:
+The C# SDK is distributed via NuGet and can be installed with the package manager console:  
 
 ```bat
-PM> Install-Package MetaWear.CSharp
+PM> Install-Package MetaWear
 ```
 
-NuGet will automatically use the appropriate build for your project.  
+MbientLab has provided Windows 10 specific implementations of the aforementioned interfaces, which can be installed alongside the ``MetaWear`` package.  
+
+```bat
+PM> Install-Package MetaWear.Win10
+```
 
 # Usage
-This section only applies to developers using the .NET Framework or UWP builds though developers adding their own Bluetooth LE and IO plugins may want tp setup their API 
-in a similar manner.
-
-Before you can use the SDK, first retrieve the [BluetoothLEDevice](https://docs.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothledevice) object 
-corresponding to your MetaWear device.  When you have found your device, call **GetMetaWearBoard** to retrieve an **IMetaWearBoard** reference for the device.
+Developers using the ``MetaWear.Win10`` package can quickly get started by first retrieving the 
+[BluetoothLEDevice](https://docs.microsoft.com/en-us/uwp/api/windows.devices.bluetooth.bluetoothledevice) object corresponding to the desired BLE device, then 
+calling **GetMetaWearBoard** to retrieve an **IMetaWearBoard** object corresponding to the device.
 
 ```csharp
 public async IMetaWearBoard macAddrToIMetaWearBoard(ulong mac) {
@@ -34,21 +30,7 @@ public async IMetaWearBoard macAddrToIMetaWearBoard(ulong mac) {
 }
 ```
 
-# Build 
-The SDK code base is partitioned into various shared projects that are referenced by the dotnet, uwp, netstandard and test projects.  By default, MSBuild will build all 4 
-projects.
-
-Make sure that your C# compiler supports C# 7.0 features.
-
-```bat
-C:\Program Files (x86)\Microsoft Visual Studio\2017\Community>csc
-Microsoft (R) Visual C# Compiler version 2.6.0.62329 (5429b35d)
-Copyright (C) Microsoft Corporation. All rights reserved.
-```
-
-## Unit Tests
-Unit tests are written with the NUnit unit-testing framework.  They can be run using the NUnit console runner (https://www.nuget.org/packages/NUnit.ConsoleRunner/).
-
-```bat
-nunit3-console.exe MetaWear.Test\bin\Debug\MetaWear.Test.dll
-```
+Developers only using the ``MetaWear`` package will need to implement the 
+[IBluetoothLeGatt](https://mbientlab.com/documents/metawear/csharp/1/interfaceMbientLab_1_1MetaWear_1_1Impl_1_1Platform_1_1IBluetoothLeGatt.html) and 
+[ILibraryIO](https://mbientlab.com/documents/metawear/csharp/1/interfaceMbientLab_1_1MetaWear_1_1Impl_1_1Platform_1_1ILibraryIO.html) interfaces, and pass 
+those implementations to the **MetaWearBoard** constructor.  

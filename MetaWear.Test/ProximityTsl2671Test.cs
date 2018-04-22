@@ -20,7 +20,7 @@ namespace MbientLab.MetaWear.Test {
                     foreach (var current in Enum.GetValues(typeof(TransmitterDriveCurrent))) {
                         for(int i = 0; i < times.Length; i++) { 
                             foreach(var p in pulses) {
-                                testCases.Add(new TestCaseData(diode, current, Tuple.Create(times[i], timeBitmasks[i]), p));
+                                testCases.Add(new TestCaseData(diode, current, times[i], timeBitmasks[i], p));
                             }
                         }
                     }
@@ -51,12 +51,12 @@ namespace MbientLab.MetaWear.Test {
             new byte[] { 0b11010000, 0b11100000 , 0b11110000 }
         };
         [TestCaseSource(typeof(ProximityTsl2671TestDataClass), "ConfigureTestCases")]
-        public void Configure(ReceiverDiode diode, TransmitterDriveCurrent current, Tuple<float, byte> time, byte pulse) {
+        public void Configure(ReceiverDiode diode, TransmitterDriveCurrent current, float time, byte timeMask, byte pulse) {
             byte[][] expected = {
-                new byte[] { 0x18, 0x2, time.Item2, pulse, CURRENT_DIODE_BITMASKS[(int) current][(int)diode] }
+                new byte[] { 0x18, 0x2, timeMask, pulse, CURRENT_DIODE_BITMASKS[(int) current][(int)diode] }
             };
 
-            proximity.Configure(diode, current, time.Item1, pulse);
+            proximity.Configure(diode, current, time, pulse);
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 

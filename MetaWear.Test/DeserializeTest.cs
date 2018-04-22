@@ -112,7 +112,9 @@ namespace MbientLab.MetaWear.Test {
             platform.fileSuffix = "gpio_feedback";
             await metawear.DeserializeAsync();
             await metawear.InitializeAsync();
+
             metawear.LookupRoute(0).Remove();
+            await (metawear as MetaWearBoard).WaitForCommands();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
@@ -128,6 +130,7 @@ namespace MbientLab.MetaWear.Test {
             await metawear.InitializeAsync();
 
             metawear.GetModule<IDataProcessor>().Edit<IComparatorEditor>("multi_comp").Modify(Builder.Comparison.Lt, 128, 256);
+            await (metawear as MetaWearBoard).WaitForCommands();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
@@ -175,7 +178,7 @@ namespace MbientLab.MetaWear.Test {
                     BitConverter.ToSingle(new byte[] { 0x00, 0x58, 0xbf, 0xbf }, 0)), 
                 actual = null;
             metawear.GetModule<IAccelerometer>().Configure(range: 16f);
-            metawear.LookupRoute(0).Subscribers[0].Attach(data => actual = data.Value<Acceleration>());
+            metawear.LookupRoute(0).LookupSubscriber("acc_stream").Attach(data => actual = data.Value<Acceleration>());
             platform.sendMockResponse(new byte[] { 0x03, 0x04, 0x16, 0xc4, 0x94, 0xa2, 0x2a, 0xd0 });
 
             Assert.That(actual, Is.Not.EqualTo(expected));
@@ -193,6 +196,38 @@ namespace MbientLab.MetaWear.Test {
             metawear.GetModule<IDataProcessor>().State("rms_buffer").Read();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task CreateAnonRoutes() {
+            platform.customResponses.Add(new byte[] { 0x3, 0x83 },
+                    new byte[] { 0x03, 0x83, 40, 8 });
+            platform.customResponses.Add(new byte[] { 0x13, 0x83 },
+                    new byte[] { 0x13, 0x83, 40, 3 });
+            platform.customResponses.Add(new byte[] { 0x19, 0x82 },
+                    new byte[] { 0x19, 0x82, 0x1, 0xf });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x00 },
+                    new byte[] { 0x0b, 0x82, 0x03, 0x04, 0xff, 0x60 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x01 },
+                    new byte[] { 0x0b, 0x82, 0x03, 0x04, 0xff, 0x24 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x02 },
+                    new byte[] { 0x0b, 0x82 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x03 },
+                    new byte[] { 0x0b, 0x82 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x04 },
+                    new byte[] { 0x0b, 0x82 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x05 },
+                    new byte[] { 0x0b, 0x82 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x06 },
+                    new byte[] { 0x0b, 0x82 });
+            platform.customResponses.Add(new byte[] { 0xb, 0x82, 0x07 },
+                    new byte[] { 0x0b, 0x82 });
+
+            platform.fileSuffix = "activity_buffer";
+            await metawear.DeserializeAsync();
+            await metawear.InitializeAsync();
+
+            await metawear.CreateAnonymousRoutesAsync();
         }
     }
 }

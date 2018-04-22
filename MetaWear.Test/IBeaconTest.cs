@@ -1,7 +1,9 @@
 ﻿using MbientLab.MetaWear.Core;
 using MbientLab.MetaWear.Peripheral;
 using MbientLab.MetaWear.Peripheral.IBeacon;
+using MbientLab.MetaWear.Sensor;
 using NUnit.Framework;
+using System;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -10,7 +12,7 @@ namespace MbientLab.MetaWear.Test {
     class IBeaconTest : UnitTestBase {
         private IIBeacon ibeacon;
 
-        public IBeaconTest() : base(typeof(ISwitch), typeof(IIBeacon), typeof(IDataProcessor)) { }
+        public IBeaconTest() : base(typeof(ISwitch), typeof(IAccelerometerBmi160), typeof(IIBeacon), typeof(IDataProcessor)) { }
 
         [SetUp]
         public async override Task SetUp() {
@@ -29,10 +31,40 @@ namespace MbientLab.MetaWear.Test {
             };
 
             var iswitch = metawear.GetModule<ISwitch>();
-            await iswitch.State.AddRouteAsync(source => source.Count().React(token => ibeacon.SetMajor(token)));
+            await iswitch.State.AddRouteAsync(source => source.Count().React(token => ibeacon.Configure(majorToken: token)));
             ibeacon.Enable();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task SetSlicedFeedback() {
+            byte[][] expected = new byte[][] {
+                new byte[] { 0x0a, 0x02, 0x03, 0x04, 0xff, 0x07, 0x03, 0x02, 0x09, 0x00},
+                new byte[] { 0x0a, 0x03, 0x00, 0x00},
+                new byte[] { 0x0a, 0x02, 0x03, 0x04, 0xff, 0x07, 0x04, 0x02, 0x45, 0x00},
+                new byte[] { 0x0a, 0x03, 0x00, 0x00},
+                new byte[] { 0x07, 0x01, 0x01}
+            };
+
+            var accelerometer = metawear.GetModule<IAccelerometer>();
+
+            await accelerometer.Acceleration.AddRouteAsync(source => source.React(token => {
+                ibeacon.Configure(majorToken: token.Slice(0, 4), minorToken: token.Slice(4, 2));
+            }));
+            ibeacon.Enable();
+
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void SliceOutOfBoundsException() {
+            var accelerometer = metawear.GetModule<IAccelerometer>();
+            Assert.ThrowsAsync<IndexOutOfRangeException>(async () => {
+                await accelerometer.Acceleration.AddRouteAsync(source => source.React(token => {
+                    ibeacon.Configure(majorToken: token.Slice(1, 6));
+                }));
+            });
         }
 
         [Test]

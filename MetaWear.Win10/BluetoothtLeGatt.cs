@@ -1,4 +1,4 @@
-﻿using MbientLab.MetaWear.Platform;
+﻿using MbientLab.MetaWear.Impl.Platform;
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +16,6 @@ namespace MbientLab.MetaWear.Win10 {
         private Dictionary<Guid, GattCharacteristic> characteristics = new Dictionary<Guid, GattCharacteristic>();
 
         public ulong BluetoothAddress => device.BluetoothAddress;
-
         public Action OnDisconnect { get; set ; }
 
         public BluetoothLeGatt(BluetoothLEDevice device) {
@@ -24,12 +23,7 @@ namespace MbientLab.MetaWear.Win10 {
             device.ConnectionStatusChanged += (sender, args) => {
                 switch (sender.ConnectionStatus) {
                     case BluetoothConnectionStatus.Disconnected:
-                        if (notifyChar != null) {
-                            notifyChar.ValueChanged -= NotifyHandler;
-                            notifyChar = null;
-                        }
-                        characteristics.Clear();
-
+                        ResetCharacteristics();
                         OnDisconnect();
                         break;
                     case BluetoothConnectionStatus.Connected:
@@ -38,8 +32,16 @@ namespace MbientLab.MetaWear.Win10 {
             };
         }
 
-        public async Task DiscoverServicesAsync() {
+        private void ResetCharacteristics() {
+            if (notifyChar != null) {
+                notifyChar.ValueChanged -= NotifyHandler;
+                notifyChar = null;
+            }
             characteristics.Clear();
+        }
+
+        public async Task DiscoverServicesAsync() {
+            ResetCharacteristics();
 
             int retry = 3;
             while (retry >= 0) {
@@ -117,6 +119,16 @@ namespace MbientLab.MetaWear.Win10 {
 
         public Task DisconnectAsync() {
             throw new NotSupportedException("Use 'IDebug.DisconnectAsync()' to close the connection");
+        }
+
+        internal void Close() {
+            foreach(var s in new HashSet<GattDeviceService>(characteristics.Values.Select(e => e.Service))) {
+                s.Dispose();
+            }
+            characteristics.Clear();
+
+            device.Dispose();
+            device = null;
         }
     }
 }

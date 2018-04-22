@@ -191,8 +191,9 @@ namespace MbientLab.MetaWear.Builder {
         IRouteComponent React(Action<IDataToken> action);
 
         /// <summary>
-        /// Assigns a user-defined name identifying the processor or producer.  The name is used to create feedback and feedforward loops.
-        /// <para>If used with a processor, the processor can be retrieved by said name with the <see cref="IDataProcessor"/> interface.</para>
+        /// Assigns a user-defined name identifying a processor, producer, or subscriber.  The name can be used to create feedback and feedforward loops, 
+        /// or refere to subscribers by name rather than index.
+        /// <para>Processors and subscribers are retrieved by name with the <see cref="IDataProcessor"/> interface and <see cref="IRoute.LookupSubscriber(string)"/> method respectively.</para>
         /// </summary>
         /// <param name="name">Assigned unique name to the most recent data producer (sensor or data processor)</param>
         /// <returns>Calling object</returns>
