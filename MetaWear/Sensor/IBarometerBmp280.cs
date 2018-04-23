@@ -27,7 +27,7 @@ namespace MbientLab.MetaWear.Sensor {
         /// </summary>
         /// <param name="os">Oversampling mode, defaults to standard</param>
         /// <param name="coeff">IIR coefficient, defaults to 0 (off)</param>
-        /// <param name="time">Standby time in milliseconds (ms), defaults to 0.5ms</param>
-        void Configure(Oversampling os = Oversampling.Standard, IirFilerCoeff coeff = IirFilerCoeff._0, StandbyTime time = StandbyTime._0_5ms);
+        /// <param name="standbyTime">Standby time in milliseconds (ms), defaults to 0.5ms</param>
+        void Configure(Oversampling os = Oversampling.Standard, IirFilerCoeff coeff = IirFilerCoeff._0, StandbyTime standbyTime = StandbyTime._0_5ms);
     }
 }

@@ -56,6 +56,10 @@ namespace MbientLab.MetaWear {
         /// </summary>
         Model? Model { get; }
         /// <summary>
+        /// Gets the string representation of the board's model, null if unable to determine
+        /// </summary>
+        String ModelString { get; }
+        /// <summary>
         /// Called when the connection is unexpectedly lost i.e. not requested by the API
         /// </summary>
         Action OnUnexpectedDisconnect { get; set; }
@@ -76,15 +80,13 @@ namespace MbientLab.MetaWear {
         /// <exception cref="TimeoutException">If initialization takes too long, timeout can be increased with the <see cref="TimeForResponse"/> property</exception>
         /// <exception cref="InvalidOperationException">If the host device failed to establish a connection</exception>
         Task InitializeAsync();
-#if NETSTANDARD2_0
         /// <summary>
         /// Disconnects from the MetaWear device
-        /// <para>This method is only available for the .NET Standard build.  Developers building a .NET console or UWP app must use 
-        /// <see cref="IDebug.DisconnectAsync"/> to terminate the connection</para>
+        /// <para>This method is only meaningful for non Windows 10 applications due to quirks with Win10's BLE stack.  For consistent behavior across all platforms, 
+        /// use the <see cref="IDebug.DisconnectAsync"/> instead to terminate the connection</para>
         /// </summary>
         /// <returns>Null when the connection is closed</returns>
         Task DisconnectAsync();
-#endif
 
         /// <summary>
         /// Reads supported characteristics from the Device Information service

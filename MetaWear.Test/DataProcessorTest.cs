@@ -32,7 +32,7 @@ namespace MbientLab.MetaWear.Test {
             );
 
             var bufferState = metawear.GetModule<IDataProcessor>().State("rms_buffer");
-            await bufferState.AddRouteAsync(source => source.Stream());
+            await bufferState.AddRouteAsync(source => source.Stream().Name("buffer_state_stream"));
         }
 
         [Test]
@@ -57,7 +57,7 @@ namespace MbientLab.MetaWear.Test {
             float expected = 260.5125f;
             float actual = 0f;
 
-            metawear.LookupRoute(1).Subscribers[0].Attach(data => actual = data.Value<float>());
+            metawear.LookupRoute(1).LookupSubscriber("buffer_state_stream").Attach(data => actual = data.Value<float>());
 
             platform.sendMockResponse(new byte[] { 0x09, 0x84, 0x02, 0xcd, 0x20, 0x41, 0x00 });
             Assert.That(actual, Is.EqualTo(expected));
@@ -678,6 +678,35 @@ namespace MbientLab.MetaWear.Test {
             );
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task SplitOutput() {
+            var accelerometer = metawear.GetModule<IAccelerometerBmi160>();
+
+            var route = await accelerometer.Acceleration.AddRouteAsync(source =>
+                source.Stream().Delay(8).Split()
+                    .Index(0).Accumulate().Stream().Name("split_acc")
+            );
+
+            {
+                byte[][] expected = new byte[][] {
+                    new byte[] { 0x09, 0x02, 0x03, 0x04, 0xff, 0xa0, 0x0a, 0x05, 0x08 },
+                    new byte[] { 0x09, 0x02, 0x09, 0x03, 0x00, 0x20, 0x02, 0x07 },
+                    new byte[] { 0x03, 0x04, 0x01 },
+                    new byte[] { 0x09, 0x03, 0x01 },
+                    new byte[] { 0x09, 0x07, 0x01, 0x01 }
+                };
+                Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+            }
+
+            {
+                float? actual = null;
+                route.LookupSubscriber("split_acc").Attach(data => actual = data.Value<float>());
+
+                platform.sendMockResponse(new byte[] { 0x09, 0x03, 0x01, 0x9f, 0xc9, 0x12, 0x00 });
+                Assert.That(actual.Value, Is.EqualTo(75.150f).Within(0.001));
+            }
         }
     }
 }

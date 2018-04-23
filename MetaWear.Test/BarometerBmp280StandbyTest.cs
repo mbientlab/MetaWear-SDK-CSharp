@@ -50,7 +50,7 @@ namespace MbientLab.MetaWear.Test {
         public void SetStandbyTime(StandbyTime time) {
             byte[][] expected = { new byte[] { 0x12, 0x03, 0x2c, BarometerBoschTest.STANDBY_BITMASK[(int)time] } };
 
-            barometer.Configure(time: time);
+            barometer.Configure(standbyTime: time);
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 

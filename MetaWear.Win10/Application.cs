@@ -1,5 +1,5 @@
 ﻿using MbientLab.MetaWear.Impl;
-using MbientLab.MetaWear.Platform;
+using MbientLab.MetaWear.Impl.Platform;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -64,7 +64,7 @@ namespace MbientLab.MetaWear.Win10 {
 #endif
         }
 
-        private static Dictionary<ulong, MetaWearBoard> btleDevices = new Dictionary<ulong, MetaWearBoard>();
+        private static Dictionary<ulong, Tuple<MetaWearBoard, BluetoothLeGatt, IO>> btleDevices = new Dictionary<ulong, Tuple<MetaWearBoard, BluetoothLeGatt, IO>>();
         private static string cachePath = ".metawear";
 
         /// <summary>
@@ -81,20 +81,28 @@ namespace MbientLab.MetaWear.Win10 {
         /// <param name="device">BluetoothLE device object corresponding to the target MetaWear board</param>
         /// <returns><see cref="IMetaWearBoard"/> object</returns>
         public static IMetaWearBoard GetMetaWearBoard(BluetoothLEDevice device) {
-            if (btleDevices.TryGetValue(device.BluetoothAddress, out var board)) {
-                return board;
+            if (btleDevices.TryGetValue(device.BluetoothAddress, out var value)) {
+                return value.Item1;
             }
 
-            board = new MetaWearBoard(new BluetoothLeGatt(device), new IO(device.BluetoothAddress));
-            btleDevices.Add(device.BluetoothAddress, board);
-            return board;
+            var gatt = new BluetoothLeGatt(device);
+            var io = new IO(device.BluetoothAddress);
+            value = Tuple.Create(new MetaWearBoard(gatt, io), gatt, io);
+            btleDevices.Add(device.BluetoothAddress, value);
+            return value.Item1;
         }
         /// <summary>
         /// Removes the <see cref="IMetaWearBoard"/> object corresponding to the BluetoothLE device
         /// </summary>
         /// <param name="device">BluetoothLE device object corresponding to the target MetaWear board</param>
-        public static void RemoveMetaWearBoard(BluetoothLEDevice device) {
-            btleDevices.Remove(device.BluetoothAddress);
+        /// <param name="dispose">True if existing references to the BluetoothLEDevice object should be disposed of</param>
+        public static void RemoveMetaWearBoard(BluetoothLEDevice device, bool dispose = false) {
+            if (btleDevices.TryGetValue(device.BluetoothAddress, out var value)) {
+                if (dispose) {
+                    value.Item2.Close();
+                }
+                btleDevices.Remove(device.BluetoothAddress);
+            }
         }
         /// <summary>
         /// Clears cached information specific to the BluetoothLE device

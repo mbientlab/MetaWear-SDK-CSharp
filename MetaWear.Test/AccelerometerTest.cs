@@ -62,8 +62,8 @@ namespace MbientLab.MetaWear.Test {
 
         [Test]
         public async Task HandleDataAsync() {
-            Acceleration expected = null, actual = null;
-            await accelerometer.Acceleration.AddRouteAsync(source => source.Stream(data => actual = data.Value<Acceleration>()));
+            FloatVector expected = null, actual = null;
+            await accelerometer.Acceleration.AddRouteAsync(source => source.Stream(data => actual = data.Value<FloatVector>()).Name("acc_stream"));
 
             if (accelerometer is IAccelerometerMma8452q) {
                 // (-1.450f, -2.555f, 0.792f)
@@ -189,7 +189,7 @@ namespace MbientLab.MetaWear.Test {
             byte[] response = null;
 
             int i = 0;
-            await accelerometer.PackedAcceleration.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<Acceleration>()));
+            var route = await accelerometer.PackedAcceleration.AddRouteAsync(source => source.Stream(data => actual[i++] = data.Value<Acceleration>()));
 
             if (accelerometer is IAccelerometerMma8452q) {
                 expected = new Acceleration[] {
@@ -259,8 +259,9 @@ namespace MbientLab.MetaWear.Test {
 
             platform.sendMockResponse(response);
             Assert.That(actual, Is.EqualTo(expected));
+            Assert.That(route.Subscribers[0].Identifier, Is.EqualTo("acceleration"));
         }
-
+        
         [Test]
         public async Task YXFeedbackAsync() {
             byte[][] expected = {
@@ -302,6 +303,28 @@ namespace MbientLab.MetaWear.Test {
                         .Index(1).Map(Function1.AbsValue).Map(Function2.Add, "x-abs")
             );
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void GenericConfigure() {
+            float expectedOdr = 0f, expectedRange = 0f;
+
+            if (accelerometer is IAccelerometerMma8452q) {
+                accelerometer.Configure(odr: 12.4f, range: 10f);
+                expectedOdr = 12.5f;
+                expectedRange = 8f;
+            } else if (accelerometer is IAccelerometerBmi160) {
+                accelerometer.Configure(odr: 1.562f, range: 1f);
+                expectedOdr = 1.5625f;
+                expectedRange = 2f;
+            } else if (accelerometer is IAccelerometerBma255) {
+                accelerometer.Configure(odr: 3000f, range: 5f);
+                expectedOdr = 2000f;
+                expectedRange = 4f;
+            }
+
+            Assert.That(expectedOdr, Is.EqualTo(accelerometer.Odr).Within(0.001f));
+            Assert.That(expectedRange, Is.EqualTo(accelerometer.Range).Within(0.001f));
         }
     }
 }

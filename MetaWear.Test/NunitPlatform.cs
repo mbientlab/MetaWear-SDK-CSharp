@@ -1,4 +1,4 @@
-﻿using MbientLab.MetaWear.Platform;
+﻿using MbientLab.MetaWear.Impl.Platform;
 
 using System;
 using System.Collections.Generic;
@@ -145,7 +145,7 @@ namespace MbientLab.MetaWear.Test {
                 }
 
                 if (response != null) {
-                    //await Task.Delay(RESPONSE_DELAY);
+                    await Task.Delay(RESPONSE_DELAY);
                     charChangedHandler(response);
                 }
             }

@@ -29,7 +29,7 @@ namespace MbientLab.MetaWear.Sensor {
             }
 
             public override string ToString() {
-                return string.Format("{clear: {0:d}, red: {1:d}, green: {2:d}, blue: {3:d}{4}", Clear, Red, Green, Blue, "}");
+                return string.Format("{{clear: {0:d}, red: {1:d}, green: {2:d}, blue: {3:d}{4}", Clear, Red, Green, Blue, "}");
             }
 
             public override bool Equals(Object obj) {

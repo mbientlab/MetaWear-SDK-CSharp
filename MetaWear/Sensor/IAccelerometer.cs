@@ -11,6 +11,18 @@ namespace MbientLab.MetaWear.Sensor {
     /// </summary>
     public interface IAccelerometer : IModule {
         /// <summary>
+        /// Currently set output data rate
+        /// <para>This value is only valid if either <see cref="Configure(float, float)"/> or <see cref="PullConfigAsync"/> 
+        /// has been called</para>
+        /// </summary>
+        float Odr { get; }
+        /// <summary>
+        /// Currently set data range
+        /// <para>This value is only valid if either <see cref="Configure(float, float)"/> or <see cref="PullConfigAsync"/></para>
+        /// </summary>
+        float Range { get; }
+
+        /// <summary>
         /// Data producer representing the sensor's acceleration data
         /// </summary>
         IAsyncDataProducer Acceleration { get; }

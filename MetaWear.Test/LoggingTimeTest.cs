@@ -55,8 +55,24 @@ namespace MbientLab.MetaWear.Test {
             }));
 
             platform.sendMockResponse(new byte[] { 0x0b, 0x07, 0x20, 0x75, 0x1b, 0x04, 0x00, 0x3e, 0x01, 0xcd, 0x01, 0x21, 0x76, 0x1b, 0x04, 0x00, 0xc0, 0x07, 0x00, 0x00 });
-            // Should be 32701 but we allow a 1s leeway for when the unit test gets its `now` value
-            Assert.That(epoch.Value, Is.EqualTo(now).Within(33701));
+            // Allow a 1s leeway for when the unit test gets its `now` value
+            Assert.That(epoch.Value, Is.EqualTo(now - 32701).Within(1000));
+        }
+
+        [Test]
+        public async Task HandleRolloverPastTime() {
+            long? epoch = null;
+            var route = await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log(data => {
+                epoch = ((DateTimeOffset)data.Timestamp).ToUnixTimeMilliseconds();
+            }));
+
+            platform.sendMockResponse(new byte[] { 0x0b, 0x07, 0x20, 0x00, 0xff, 0xff, 0xff, 0x3e, 0x01, 0xcd, 0x01, 0x21, 0x00, 0xff, 0xff, 0xff, 0xc0, 0x07, 0x00, 0x00 });
+            // Allow a 1s leeway for when the unit test gets its `now` value
+            Assert.That(epoch.Value, Is.EqualTo(now - 427372).Within(1000));
+
+            platform.sendMockResponse(new byte[] { 0x0b, 0x07, 0x20, 0xff, 0x00, 0x00, 0x00, 0x3e, 0x01, 0xcd, 0x01, 0x21, 0xff, 0x00, 0x00, 0x00, 0xc0, 0x07, 0x00, 0x00 });
+            // Allow a 1s leeway for when the unit test gets its `now` value
+            Assert.That(epoch.Value, Is.EqualTo(now - 426861).Within(1000));
         }
     }
 }
