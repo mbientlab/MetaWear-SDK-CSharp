@@ -9,13 +9,13 @@ BLE stack and file i/o code specific for their target environment by implementin
 The C# SDK is distributed via NuGet and can be installed with the package manager console:  
 
 ```bat
-PM> Install-Package MetaWear
+PM> Install-Package MetaWear.CSharp
 ```
 
-MbientLab has provided Windows 10 specific implementations of the aforementioned interfaces, which can be installed alongside the ``MetaWear`` package.  
+MbientLab has provided Windows 10 specific implementations of the aforementioned interfaces, which can be installed alongside the ``MetaWear.Csharp`` package.  
 
 ```bat
-PM> Install-Package MetaWear.Win10
+PM> Install-Package MetaWear.CSharp.Win10
 ```
 
 # Usage
