@@ -111,7 +111,6 @@ namespace MbientLab.MetaWear.Impl {
                 rollbackTimestamps[e.Key] = e.Value;
             }
             if (downloadTask != null) {
-                downloadTask?.SetCanceled();
                 downloadTask?.SetException(new IOException("BLE connection lost"));
                 downloadTask = null;
             }
