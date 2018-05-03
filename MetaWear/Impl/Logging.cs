@@ -111,7 +111,7 @@ namespace MbientLab.MetaWear.Impl {
                 rollbackTimestamps[e.Key] = e.Value;
             }
             if (downloadTask != null) {
-                downloadTask?.SetException(new IOException("BLE connection lost"));
+                downloadTask.SetException(new IOException("BLE connection lost"));
                 downloadTask = null;
             }
         }
@@ -152,7 +152,7 @@ namespace MbientLab.MetaWear.Impl {
 
                 if (nEntriesLeft == 0) {
                     rollbackTimestamps.Clear();
-                    downloadTask?.SetResult(true);
+                    downloadTask.SetResult(true);
                     downloadTask = null;
                 } else {
                     updateHandler?.Invoke(nEntriesLeft, nLogEntries);
@@ -186,7 +186,7 @@ namespace MbientLab.MetaWear.Impl {
 
                 if (nLogEntries == 0) {
                     rollbackTimestamps.Clear();
-                    downloadTask?.SetResult(true);
+                    downloadTask.SetResult(true);
                     downloadTask = null;
                 } else {
                     updateHandler?.Invoke(nLogEntries, nLogEntries);
