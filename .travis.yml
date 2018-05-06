@@ -1,0 +1,6 @@
+language: csharp
+solution: MetaWear-SDK-CSharp.sln
+mono: none
+dotnet: 2.1.105
+script:
+ - dotnet test MetaWear.Test/MetaWear.Test.csproj
