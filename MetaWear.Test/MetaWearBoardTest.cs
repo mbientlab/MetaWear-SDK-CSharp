@@ -170,8 +170,9 @@ namespace MbientLab.MetaWear.Test {
                 new byte[] { 0x0b, 0x84 }
             };
 
-            platform = new NunitPlatform(new InitializeResponse("1.3.4", typeof(IGpio), typeof(ILogging)));
-            platform.fileSuffix = "scheduled_task";
+            platform = new NunitPlatform(new InitializeResponse("1.3.4", typeof(IGpio), typeof(ILogging))) {
+                fileSuffix = "scheduled_task"
+            };
 
             metawear = new MetaWearBoard(platform, platform);
             await metawear.DeserializeAsync();

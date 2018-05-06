@@ -20,6 +20,16 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
+        public async Task Serialize() {
+            await settings.Battery.AddRouteAsync(source => source.Stream());
+            await settings.ChargeStatus.AddRouteAsync(source => source.Stream());
+            await settings.PowerStatus.AddRouteAsync(source => source.Stream());
+
+            platform.fileSuffix = "settings_rev5";
+            await metawear.SerializeAsync();
+        }
+
+        [Test]
         public void ReadPowerStatus() {
             byte[][] expected = { new byte[] { 0x11, 0x91 } };
 

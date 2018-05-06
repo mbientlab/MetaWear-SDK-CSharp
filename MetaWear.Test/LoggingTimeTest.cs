@@ -1,4 +1,5 @@
 ﻿using MbientLab.MetaWear.Core;
+using MbientLab.MetaWear.Impl;
 using MbientLab.MetaWear.Sensor;
 using NUnit.Framework;
 using System;
@@ -8,17 +9,23 @@ namespace MbientLab.MetaWear.Test {
     [Parallelizable]
     [TestFixture]
     class LoggingTimeTest : UnitTestBase {
-        private ILogging logging;
-        private long now;
+        protected ILogging logging;
+        protected long now;
 
-        public LoggingTimeTest() : base(typeof(IAccelerometerBmi160), typeof(ILogging)) { }
+        public LoggingTimeTest() : base(typeof(IAccelerometerBmi160), typeof(ILogging)) {
+        }
 
         [SetUp]
         public async override Task SetUp() {
             platform.customResponses.Add(new byte[] { 0x0b, 0x84 }, new byte[] { 0x0b, 0x84, 0xa9, 0x72, 0x04, 0x00, 0x01 });
             await base.SetUp();
-            now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
 
+            /*
+            platform.fileSuffix = "logging_time_refs";
+            await metawear.SerializeAsync();
+            */
+
+            now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             logging = metawear.GetModule<ILogging>();
         }
 
@@ -73,6 +80,24 @@ namespace MbientLab.MetaWear.Test {
             platform.sendMockResponse(new byte[] { 0x0b, 0x07, 0x20, 0xff, 0x00, 0x00, 0x00, 0x3e, 0x01, 0xcd, 0x01, 0x21, 0xff, 0x00, 0x00, 0x00, 0xc0, 0x07, 0x00, 0x00 });
             // Allow a 1s leeway for when the unit test gets its `now` value
             Assert.That(epoch.Value, Is.EqualTo(now - 426861).Within(1000));
+        }
+    }
+
+    [Parallelizable]
+    [TestFixture]
+    class DeserializedLoggingTimeTest : LoggingTimeTest {
+        public DeserializedLoggingTimeTest() : base() { }
+
+        [SetUp]
+        public async override Task SetUp() {
+            platform.fileSuffix = "logging_time_refs";
+            metawear = new MetaWearBoard(platform, platform);
+
+            await metawear.DeserializeAsync();
+            await metawear.InitializeAsync();
+            
+            now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            logging = metawear.GetModule<ILogging>();
         }
     }
 }
