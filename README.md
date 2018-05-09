@@ -1,4 +1,5 @@
 # MetaWear C# SDK
+[![Build Status](https://travis-ci.org/mbientlab/MetaWear-SDK-CSharp.svg?branch=master)](https://travis-ci.org/mbientlab/MetaWear-SDK-CSharp)  
 SDK for creating MetaWear apps using C#.  
 
 The SDK is distributed on NuGet as a platform agnostic, .NET Standard 2.0 assembly.  Due to its platform agnostic nature, developers will need to plugin their own 

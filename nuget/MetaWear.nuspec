@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
   <metadata minClientVersion="4.1">
-    <id>MetaWear</id>
+    <id>MetaWear.CSharp</id>
     <title>MetaWear C# SDK</title>
     <version>0.0.0</version>
     <authors>MbientLab</authors>

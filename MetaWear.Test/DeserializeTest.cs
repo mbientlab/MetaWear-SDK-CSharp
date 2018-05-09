@@ -5,8 +5,10 @@ using MbientLab.MetaWear.Impl;
 using MbientLab.MetaWear.Peripheral;
 using MbientLab.MetaWear.Peripheral.SerialPassthrough;
 using MbientLab.MetaWear.Sensor;
+using MbientLab.MetaWear.Sensor.Temperature;
 using NUnit.Framework;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
@@ -163,6 +165,22 @@ namespace MbientLab.MetaWear.Test {
             sensor.Read();
 
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+
+        [Test]
+        public async Task CheckTemperatureTypes() {
+            platform.fileSuffix = "temperature";
+            await metawear.DeserializeAsync();
+            await metawear.InitializeAsync();
+
+            SensorType[] types = new SensorType[] {
+                SensorType.NrfSoc,
+                SensorType.PresetThermistor,
+                SensorType.ExtThermistor,
+                SensorType.BoschEnv
+            };
+            Assert.That(metawear.GetModule<ITemperature>().Sensors.Select(_ => _.Type).ToArray(), Is.EqualTo(types));
         }
 
         [Test]

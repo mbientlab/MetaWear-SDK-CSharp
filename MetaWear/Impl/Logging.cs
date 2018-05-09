@@ -76,6 +76,9 @@ namespace MbientLab.MetaWear.Impl {
 
     [DataContract]
     class Logging : ModuleImplBase, ILogging {
+        private static readonly Tuple<byte, byte> PROGRESS_REGISTER = Tuple.Create((byte)LOGGING, READOUT_PROGRESS),
+            PAGE_CONFIRM_REGISTER = Tuple.Create((byte)LOGGING, READOUT_PAGE_COMPLETED);
+
         private const double TICK_TIME_STEP = (48.0 / 32768.0) * 1000.0;
         private const byte LOG_ENTRY_SIZE = 4, REVISION_EXTENDED_LOGGING = 2;
         internal const byte ENABLE = 1,
@@ -95,7 +98,7 @@ namespace MbientLab.MetaWear.Impl {
         [DataMember] private Dictionary<byte, uint> rollbackTimestamps = new Dictionary<byte, uint>();
 
         private TimedTask<byte> createLoggerTask;
-        private TimedTask<byte[]> queryLogConfigTask;
+        private TimedTask<byte[]> queryLogConfigTask, queryEntriesTask;
         private TimedTask<bool> queryTimeTask;
 
         public Logging(IModuleBoardBridge bridge) : base(bridge) {
@@ -111,15 +114,16 @@ namespace MbientLab.MetaWear.Impl {
                 rollbackTimestamps[e.Key] = e.Value;
             }
             if (downloadTask != null) {
-                downloadTask.SetException(new IOException("BLE connection lost"));
-                downloadTask = null;
+                completeDownloadTask(new IOException("BLE connection lost"));
             }
         }
 
         protected override void init() {
             queryLogConfigTask = new TimedTask<byte[]>();
             createLoggerTask = new TimedTask<byte>();
-            
+            queryEntriesTask = new TimedTask<byte[]>();
+
+
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(TRIGGER)), response => queryLogConfigTask.SetResult(response));
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, TRIGGER), response => createLoggerTask.SetResult(response[2]));
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, READOUT_NOTIFY), response => {
@@ -147,17 +151,6 @@ namespace MbientLab.MetaWear.Impl {
                     processLogData(response, 11);
                 }
             });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, READOUT_PROGRESS), response => {
-                uint nEntriesLeft = BitConverter.ToUInt32(response, 2);
-
-                if (nEntriesLeft == 0) {
-                    rollbackTimestamps.Clear();
-                    downloadTask.SetResult(true);
-                    downloadTask = null;
-                } else {
-                    updateHandler?.Invoke(nEntriesLeft, nLogEntries);
-                }
-            });
             bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(TIME)), response => {
                 // if in the middle of a log download, don't update the reference
                 // rollbackTimestamps var is cleared after readout progress hits 0
@@ -180,72 +173,97 @@ namespace MbientLab.MetaWear.Impl {
                     queryTimeTask = null;
                 }
             });
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(LENGTH)), response => {
-                int payloadSize = response.Length - 2;
-                nLogEntries = BitConverter.ToUInt32(response, 2);
-
-                if (nLogEntries == 0) {
-                    rollbackTimestamps.Clear();
-                    downloadTask.SetResult(true);
-                    downloadTask = null;
-                } else {
-                    updateHandler?.Invoke(nLogEntries, nLogEntries);
-
-                    uint nEntriesNotify = nUpdates == 0 ? 0 : (uint) (nLogEntries * (1.0 / nUpdates));
-                    // In little endian, [A, B, 0, 0] is equal to [A, B]
-                    byte[] command = new byte[payloadSize + sizeof(uint)];
-
-                    Array.Copy(response, 2, command, 0, payloadSize);
-                    Array.Copy(BitConverter.GetBytes(nEntriesNotify), 0, command, payloadSize, sizeof(uint));
-                    
-                    bridge.sendCommand(LOGGING, READOUT, command);
-                }
-            });
-
-            if (bridge.lookupModuleInfo(LOGGING).revision >= REVISION_EXTENDED_LOGGING) {
-                bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, READOUT_PAGE_COMPLETED), response => bridge.sendCommand(new byte[] { (byte)LOGGING, READOUT_PAGE_CONFIRM }));
-            }
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)LOGGING, Util.setRead(LENGTH)), response => queryEntriesTask.SetResult(response));
         }
 
         public void ClearEntries() {
             bridge.sendCommand(new byte[] { (byte) LOGGING, REMOVE_ENTRIES, 0xff, 0xff, 0xff, 0xff });
         }
 
-        private uint nLogEntries, nUpdates;
+        private uint nLogEntries;
         private TaskCompletionSource<bool> downloadTask;
         private Action<uint, uint> updateHandler;
         private Action<LogDownloadError, byte, DateTime, byte[]> errorHandler;
 
-        public Task DownloadAsync(uint nUpdates, Action<uint, uint> updateHandler, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
+        private void completeDownloadTask(Exception e = null) {
+            bridge.removeRegisterResponseHandler(PROGRESS_REGISTER);
+            bridge.removeRegisterResponseHandler(PAGE_CONFIRM_REGISTER);
+            rollbackTimestamps.Clear();
+
+            var temp = downloadTask;
+            downloadTask = null;
+            if (e == null) {
+                temp.SetResult(true);
+            } else {
+                temp.SetException(e);
+            }
+        }
+
+        private async Task<bool> DownloadAsyncInner(uint nUpdates, Action<uint, uint> updateHandler, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
             if (downloadTask != null) {
-                return downloadTask.Task;
+                return await downloadTask.Task;
             }
 
-            this.nUpdates = nUpdates;
+            var entriesResponse = await queryEntriesTask.Execute("Current log usage not received within {0}ms", bridge.TimeForResponse,
+                () => bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(LENGTH) })
+            );
+            nLogEntries = entriesResponse.Length > 6 ? Util.bytesLeToUint(entriesResponse, 2) : Util.bytesLeToUshort(entriesResponse, 2);
+            if (nLogEntries == 0) {
+                rollbackTimestamps.Clear();
+                return true;
+            }
+
             this.updateHandler = updateHandler;
             this.errorHandler = errorHandler;
 
+            var progressRegister = Tuple.Create((byte)LOGGING, READOUT_PROGRESS);
+            var pageConfirmRegister = Tuple.Create((byte)LOGGING, READOUT_PAGE_COMPLETED);
+            downloadTask = new TaskCompletionSource<bool>();
+            bridge.addRegisterResponseHandler(progressRegister, arg1 => {
+                uint nEntriesLeft = BitConverter.ToUInt32(arg1, 2);
+
+                if (nEntriesLeft == 0) {
+                    completeDownloadTask();
+                } else {
+                    updateHandler?.Invoke(nEntriesLeft, nLogEntries);
+                }
+            });
+
             if (bridge.lookupModuleInfo(LOGGING).revision >= REVISION_EXTENDED_LOGGING) {
-                bridge.sendCommand(new byte[] { (byte) LOGGING, READOUT_PAGE_COMPLETED, 1 });
+                bridge.addRegisterResponseHandler(pageConfirmRegister, response => bridge.sendCommand(new byte[] { (byte)LOGGING, READOUT_PAGE_CONFIRM }));
+                bridge.sendCommand(new byte[] { pageConfirmRegister.Item1, pageConfirmRegister.Item2, 1 });
             }
             bridge.sendCommand(new byte[] { (byte)LOGGING, READOUT_NOTIFY, 1 });
-            bridge.sendCommand(new byte[] { (byte)LOGGING, READOUT_PROGRESS, 1 });
-            bridge.sendCommand(new byte[] { (byte)LOGGING, Util.setRead(LENGTH) });
+            bridge.sendCommand(new byte[] { progressRegister.Item1, progressRegister.Item2, 1 });
 
-            downloadTask = new TaskCompletionSource<bool>();
-            return downloadTask.Task;
+            byte[] nEntriesNotify = Util.uintToBytesLe(nUpdates == 0 ? 0 : (uint)(nLogEntries * (1.0 / nUpdates)));
+            int payloadSize = entriesResponse.Length - 2;
+            // In little endian, [A, B, 0, 0] is equal to [A, B]
+            byte[] readoutCommand = new byte[payloadSize + sizeof(uint)];
+
+            Array.Copy(entriesResponse, 2, readoutCommand, 0, payloadSize);
+            Array.Copy(nEntriesNotify, 0, readoutCommand, payloadSize, nEntriesNotify.Length);
+
+            updateHandler?.Invoke(nLogEntries, nLogEntries);
+            bridge.sendCommand(LOGGING, READOUT, readoutCommand);
+
+            return await downloadTask.Task;
+        }
+
+        public Task DownloadAsync(uint nUpdates, Action<uint, uint> updateHandler, Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
+            return DownloadAsyncInner(nUpdates, updateHandler, errorHandler);
         }
 
         public Task DownloadAsync(uint nUpdates, Action<uint, uint> updateHandler) {
-            return DownloadAsync(nUpdates, updateHandler, null);
+            return DownloadAsyncInner(nUpdates, updateHandler, null);
         }
 
         public Task DownloadAsync(Action<LogDownloadError, byte, DateTime, byte[]> errorHandler) {
-            return DownloadAsync(0, null, errorHandler);
+            return DownloadAsyncInner(0, null, errorHandler);
         }
 
         public Task DownloadAsync() {
-            return DownloadAsync(0, null, null);
+            return DownloadAsyncInner(0, null, null);
         }
 
         public void Start(bool overwrite = false) {

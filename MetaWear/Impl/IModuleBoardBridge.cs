@@ -23,6 +23,7 @@ namespace MbientLab.MetaWear.Impl {
         void removeObserver(uint id);
 
         void addRegisterResponseHandler(Tuple<byte, byte> key, Action<byte[]> handler);
+        void removeRegisterResponseHandler(Tuple<byte, byte> key);
         void addDataIdHeader(Tuple<byte, byte> key);
         void addDataHandler(Tuple<byte, byte, byte> key, Action<byte[]> handler);
         void removeDataHandler(Tuple<byte, byte, byte> key, Action<byte[]> handler);

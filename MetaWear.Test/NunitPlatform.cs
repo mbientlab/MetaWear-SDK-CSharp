@@ -207,7 +207,8 @@ namespace MbientLab.MetaWear.Test {
         }
 
         private Stream OpenFile(string filename, FileMode mode) {
-            return File.Open(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(TestContext.CurrentContext.TestDirectory)), "res", filename), mode);
+            var directory = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(TestContext.CurrentContext.TestDirectory)));
+            return File.Open(Path.Combine(directory, "res", filename), mode);
         }
 
         public void ReadFile(string filename, Action<string> handler) {

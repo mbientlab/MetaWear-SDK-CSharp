@@ -247,7 +247,7 @@ namespace MbientLab.MetaWear.Impl {
                         }
                         await metawear.gatt.WriteCharacteristicAsync(
                             COMMAND_GATT_CHAR,
-                            next.Item1[0] == (byte)MACRO ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE,
+                            next.Item1[0] == (byte)MACRO && next.Item1[1] != READ_INFO_REGISTER ? GattCharWriteType.WRITE_WITH_RESPONSE : GattCharWriteType.WRITE_WITHOUT_RESPONSE,
                             next.Item1
                         );
                     } catch (Exception e) {
@@ -366,6 +366,10 @@ namespace MbientLab.MetaWear.Impl {
 
             public void addRegisterResponseHandler(Tuple<byte, byte> key, Action<byte[]> handler) {
                 metawear.registerResponseHandlers[key] = handler;
+            }
+
+            public void removeRegisterResponseHandler(Tuple<byte, byte> key) {
+                metawear.registerResponseHandlers.Remove(key);
             }
 
             public Version getFirmware() {
@@ -535,8 +539,7 @@ namespace MbientLab.MetaWear.Impl {
             gatt.OnDisconnect = () => {
                 IsConnected = false;
 
-                var debug = GetModule<IDebug>() as Debug;
-                var remoteDc = debug != null && debug.dcTaskSource != null;
+                var remoteDc = GetModule<IDebug>() is Debug debug && debug.dcTaskSource != null;
 
                 foreach (var it in persistent.modules.Values) {
                     (it as ModuleImplBase).disconnected();

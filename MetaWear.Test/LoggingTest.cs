@@ -72,14 +72,6 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public void ReadoutPageConfirm() {
-            byte[][] expected = { new byte[] { 0x0b, 0x0e } };
-
-            platform.sendMockResponse(new byte[] { 0xb, 0xd });
-            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
-        }
-
-        [Test]
         public async Task ReadoutProgess() {
             uint[] expected = new uint[] {
                 0x019e,
@@ -129,27 +121,26 @@ namespace MbientLab.MetaWear.Test {
         [Test]
         public void Download() {
             byte[][] expected = {
+                new byte[] {0x0b, 0x85},
                 new byte[] {0x0b, 0x0d, 0x01},
                 new byte[] {0x0b, 0x07, 0x01},
                 new byte[] {0x0b, 0x08, 0x01},
-                new byte[] {0x0b, 0x85},
-                new byte[] {0x0b, 0x06, 0x9e, 0x01, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00}
+                new byte[] {0x0b, 0x06, 0x9e, 0x01, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00},
+                new byte[] { 0x0b, 0x0e }
             };
 
             logging.DownloadAsync(20, (nEntries, totalEntries) => { });
+            platform.sendMockResponse(new byte[] { 0xb, 0xd });
+
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
 
         [Test]
         public void InterruptDownload() {
-            Assert.ThrowsAsync <IOException>(async () => {
-                try {
-                    var task = logging.DownloadAsync(20, (nEntries, totalEntries) => { });
-                    new Timer(e => metawear.GetModule<IDebug>().DisconnectAsync(), null, 0, 5000L);
-                    await task;
-                } catch (AggregateException e) {
-                    throw e.InnerException;
-                }
+            Assert.ThrowsAsync<IOException>(async () => {
+                var task = logging.DownloadAsync(20, (nEntries, totalEntries) => { });
+                new Timer(e => metawear.GetModule<IDebug>().DisconnectAsync(), null, 0, 5000L);
+                await task;
             });
         }
 
@@ -166,6 +157,20 @@ namespace MbientLab.MetaWear.Test {
             platform.sendMockResponse(new byte[] { 0x0b, 0x07, 0xa1, 0xcc, 0x4d, 0x00, 0x00, 0x6c, 0x01, 0x00, 0x00 });
 
             Assert.That(actual, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public async Task UnwantedProgressUpdate() {
+            // receiving unwanted 'download completed' response was causing null pointer exception  
+            // testing that code ignores this response
+            platform.sendMockResponse(new byte[] { 0x0b, 0x08, 0x00, 0x00, 0x00, 0x00 });
+
+            var task = logging.DownloadAsync(20, (nEntries, totalEntries) => { });
+            platform.sendMockResponse(new byte[] { 0x0b, 0x08, 0x00, 0x00, 0x00, 0x00 });
+            await task;
+
+            // checking that code ignores this response after a download is completed
+            platform.sendMockResponse(new byte[] { 0x0b, 0x08, 0x00, 0x00, 0x00, 0x00 });
         }
     }
 }
