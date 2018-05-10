@@ -26,6 +26,7 @@ namespace MbientLab.MetaWear.Test {
             */
 
             now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            //Console.WriteLine("what is now? " + now);
             logging = metawear.GetModule<ILogging>();
         }
 
@@ -55,7 +56,7 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public async Task HandlePastTime() {
+        public virtual async Task HandlePastTime() {
             long? epoch = null;
             var route = await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log(data => {
                 epoch = ((DateTimeOffset) data.Timestamp).ToUnixTimeMilliseconds();
@@ -67,7 +68,7 @@ namespace MbientLab.MetaWear.Test {
         }
 
         [Test]
-        public async Task HandleRolloverPastTime() {
+        public virtual async Task HandleRolloverPastTime() {
             long? epoch = null;
             var route = await metawear.GetModule<IAccelerometer>().Acceleration.AddRouteAsync(source => source.Log(data => {
                 epoch = ((DateTimeOffset)data.Timestamp).ToUnixTimeMilliseconds();
@@ -96,8 +97,19 @@ namespace MbientLab.MetaWear.Test {
             await metawear.DeserializeAsync();
             await metawear.InitializeAsync();
             
-            now = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             logging = metawear.GetModule<ILogging>();
+        }
+
+        [Test]
+        public override async Task HandleRolloverPastTime() {
+            now = 1525978892783;
+            await base.HandleRolloverPastTime();
+        }
+
+        [Test]
+        public override async Task HandlePastTime() {
+            now = 1525978892591;
+            await base.HandlePastTime();
         }
     }
 }
