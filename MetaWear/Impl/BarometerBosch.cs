@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
+    [KnownType(typeof(BarometerBoschFloatDataType))]
     [DataContract]
     abstract class BarometerBosch : ModuleImplBase, IBarometerBosch {
         internal static string createIdentifier(DataTypeBase dataType) {

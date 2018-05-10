@@ -60,8 +60,9 @@ namespace MbientLab.MetaWear.Impl {
                 typeof(Settings),
                 typeof(Switch),
                 typeof(Temperature),
-                typeof(Timer)
-            }
+                typeof(Timer),
+                typeof(Settings)
+			}
         };
 
         [DataContract]

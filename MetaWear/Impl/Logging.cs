@@ -69,9 +69,9 @@ namespace MbientLab.MetaWear.Impl {
 
     [DataContract]
     class TimeReference {
-        public byte resetUid;
-        public uint tick;
-        public DateTime timestamp;
+       [DataMember] public byte resetUid;
+       [DataMember] public uint tick;
+       [DataMember] public DateTime timestamp;
     }
 
     [DataContract]

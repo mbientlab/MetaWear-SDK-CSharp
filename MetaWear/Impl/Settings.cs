@@ -9,6 +9,7 @@ using System.Runtime.Serialization;
 using System.Collections.Generic;
 
 namespace MbientLab.MetaWear.Impl {
+    [KnownType(typeof(BatteryStateDataType))]
     [DataContract]
     class Settings : ModuleImplBase, ISettings {
         internal static string createIdentifier(DataTypeBase dataType) {
