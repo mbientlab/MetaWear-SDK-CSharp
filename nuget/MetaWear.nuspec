@@ -3,7 +3,7 @@
   <metadata minClientVersion="4.1">
     <id>MetaWear.CSharp</id>
     <title>MetaWear C# SDK</title>
-    <version>0.0.0</version>
+    <version>1.0.15</version>
     <authors>MbientLab</authors>
     <owners>MbientLab</owners>
     <licenseUrl>https://raw.githubusercontent.com/mbientlab/MetaWear-SDK-CSharp/master/LICENSE.md</licenseUrl>
@@ -11,7 +11,7 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <copyright>Copyright 2014 - 2018(c). MbientLab Inc</copyright>
     <summary>Platform agnostic C# SDK for MbientLab's sensor platform</summary>
-    <releaseNotes>https://github.com/mbientlab/MetaWear-SDK-CSharp/releases/tag/1.0.0</releaseNotes>
+    <releaseNotes>https://github.com/mbientlab/MetaWear-SDK-CSharp/releases/tag/1.0.15</releaseNotes>
     <description>
 Platform agnostic, .NET Standard 2.0 library for commuicating with MbientLab's sensor platform.  
 
