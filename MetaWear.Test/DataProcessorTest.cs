@@ -12,7 +12,7 @@ using MbientLab.MetaWear.Sensor.Temperature;
 using MbientLab.MetaWear.Data;
 
 namespace MbientLab.MetaWear.Test {
-    class DataProcessorTest : UnitTestBase {
+    abstract class DataProcessorTest : UnitTestBase {
         public DataProcessorTest() : base(typeof(ISwitch), typeof(ILed), typeof(IAccelerometerBmi160),
             typeof(IBarometerBmp280), typeof(IGpio), typeof(ILogging), typeof(IDataProcessor), typeof(ITemperature)) { }
     }

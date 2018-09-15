@@ -41,7 +41,9 @@ namespace MbientLab.MetaWear.Impl {
 
         private const byte ENABLE = 1, MODE = 2, OUTPUT_ENABLE = 3,
             CORRECTED_ACC = 4, CORRECTED_ROT = 5, CORRECTED_MAG = 6,
-            QUATERNION = 7, EULER_ANGLES = 8, GRAVITY_VECTOR = 9, LINEAR_ACC = 0xa;
+            QUATERNION = 7, EULER_ANGLES = 8, GRAVITY_VECTOR = 9, LINEAR_ACC = 0xa,
+            CALIBRATION_STATUS = 0xb;
+        private const byte CALIBRATION_STATE_REV = 1;
 
         [DataContract]
         private class QuaternionDataType : DataTypeBase {
@@ -262,7 +264,7 @@ namespace MbientLab.MetaWear.Impl {
         [DataMember] private byte dataEnableMask;
         [DataMember] private DataTypeBase corrAccType, corrAngVelType, corrBFieldType, quaternionType, eulerAnglesType, gravityType, linAccType;
 
-        private TimedTask<byte[]> readConfigTask;
+        private TimedTask<byte[]> readValueTask;
 
         private IAsyncDataProducer correctedAcc = null, correctedAngularVel = null, correctedMag = null, 
             quaternion = null, eulerAngles = null, 
@@ -346,8 +348,9 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         protected override void init() {
-            readConfigTask = new TimedTask<byte[]>();
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(MODE)), response => readConfigTask.SetResult(response));
+            readValueTask = new TimedTask<byte[]>();
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(MODE)), response => readValueTask.SetResult(response));
+            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(CALIBRATION_STATUS)), response => readValueTask.SetResult(response));
         }
 
         public void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps,
@@ -494,9 +497,18 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         public async Task PullConfigAsync() {
-            var response = await readConfigTask.Execute("Did not receive sensor fusion config within {0}ms", bridge.TimeForResponse, 
+            var response = await readValueTask.Execute("Did not receive sensor fusion config within {0}ms", bridge.TimeForResponse, 
                 () => bridge.sendCommand(new byte[] { (byte)SENSOR_FUSION, Util.setRead(MODE) }));
             mode = (Mode)response[2];
+        }
+
+        public async Task<ImuCalibrationState> ReadCalibrationStateAsync() {
+            if (bridge.lookupModuleInfo(SENSOR_FUSION).revision >= CALIBRATION_STATE_REV) {
+                var response = await readValueTask.Execute("Did not received calibration state within {0}ms", bridge.TimeForResponse,
+                    () => bridge.sendCommand(new byte[] { (byte)SENSOR_FUSION, Util.setRead(CALIBRATION_STATUS) }));
+                return new ImuCalibrationState((CalibrationAccuracy)response[2], (CalibrationAccuracy)response[3], (CalibrationAccuracy)response[4]);
+            }
+            throw new InvalidOperationException(string.Format("Minimun firmware v1.4.1 required to use this function (current is {0})", bridge.getFirmware().ToString()));
         }
     }
 }

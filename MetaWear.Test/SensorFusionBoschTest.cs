@@ -151,12 +151,11 @@ namespace MbientLab.MetaWear.Test {
         }
     }
 
-    [Parallelizable]
-    [TestFixture]
-    class SensorFusionBoschTest : UnitTestBase {
-        private ISensorFusionBosch sensorFusion;
+    abstract class SensorFusionBoschBaseTest : UnitTestBase {
+        protected ISensorFusionBosch sensorFusion;
 
-        public SensorFusionBoschTest() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch)) { }
+        public SensorFusionBoschBaseTest() : base(typeof(IAccelerometerBmi160), typeof(IGyroBmi160), typeof(IMagnetometerBmm150), typeof(ISensorFusionBosch)) {
+        }
 
         [SetUp]
         public async override Task SetUp() {
@@ -177,7 +176,7 @@ namespace MbientLab.MetaWear.Test {
         [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "ConfigureTestCases")]
         public void Configure(Mode mode, AccRange acc, GyroRange gyr, Sensor.AccelerometerBmi160.FilterMode accFilter, FilterMode gyroFilter) {
             byte[][] expected = null;
-            byte[] configGyro100Hz = new byte[] {0x13, 0x03, (byte) (((int) gyroFilter << 4 ) | GyroBmi160Test.ODR_BITMASK[(int) OutputDataRate._100Hz]), GyroBmi160Test.RANGE_BITMASK[(int) gyr]};
+            byte[] configGyro100Hz = new byte[] { 0x13, 0x03, (byte)(((int)gyroFilter << 4) | GyroBmi160Test.ODR_BITMASK[(int)OutputDataRate._100Hz]), GyroBmi160Test.RANGE_BITMASK[(int)gyr] };
 
             switch (mode) {
                 case Mode.Ndof:
@@ -213,7 +212,7 @@ namespace MbientLab.MetaWear.Test {
                     };
                     break;
             }
-            expected[1][2] |= (byte)((int) accFilter << 4);
+            expected[1][2] |= (byte)((int)accFilter << 4);
 
             sensorFusion.Configure(mode, acc, gyr, accExtra: new Object[] { accFilter }, gyroExtra: new object[] { gyroFilter });
 
@@ -261,6 +260,50 @@ namespace MbientLab.MetaWear.Test {
             platform.sendMockResponse(response);
 
             Assert.That(actual, Is.EqualTo(expected));
+        }
+    }
+
+    [Parallelizable]
+    [TestFixture]
+    class SensorFusionBoschTest : SensorFusionBoschBaseTest {        
+        public SensorFusionBoschTest() : base() {
+
+        }
+        
+        [Test]
+        public void ReadCalibration() {
+            Assert.ThrowsAsync<InvalidOperationException>(async () => {
+                await sensorFusion.ReadCalibrationStateAsync();
+            });
+        }
+    }
+
+    [Parallelizable]
+    [TestFixture]
+    class SensorFusionBoschRev1Test : SensorFusionBoschBaseTest {
+        public SensorFusionBoschRev1Test() : base() {
+            platform.initResponse.moduleResponses[0x19][3] = 0x1;
+        }
+
+        [SetUp]
+        public async override Task SetUp() {
+            await base.SetUp();
+
+            platform.customResponses.Add(new byte[] { 0x19, 0x8b },
+                    new byte[] { 0x19, 0x8b, 0x00, 0x01, 0x02 });
+        }
+
+        [Test]
+        public async Task ReadCalibration() {
+            byte[][] expected = new byte[][] {
+                new byte[] { 0x19, 0x8b }
+            };
+            ImuCalibrationState expectedState = new ImuCalibrationState(CalibrationAccuracy.Unreliable, CalibrationAccuracy.LowAccuracy, CalibrationAccuracy.MediumAccuracy);
+
+            var actual = await sensorFusion.ReadCalibrationStateAsync();
+
+            Assert.That(actual, Is.EqualTo(expectedState));
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
     }
 }

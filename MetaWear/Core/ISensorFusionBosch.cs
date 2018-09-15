@@ -150,6 +150,47 @@ namespace MbientLab.MetaWear.Core {
                 return result;
             }
         }
+        /// <summary>
+        /// Container class holding the calibration state of the IMU sensors
+        /// </summary>
+        public struct ImuCalibrationState {
+            /// <summary>
+            /// Current calibration accuracy values for the accelerometer, gyroscope, and magnetometer respectively
+            /// </summary>
+            public readonly CalibrationAccuracy accelerometer, gyroscope, magnetometer;
+
+            public ImuCalibrationState(CalibrationAccuracy accelerometer, CalibrationAccuracy gyroscope, CalibrationAccuracy magnetometer) {
+                this.accelerometer = accelerometer;
+                this.gyroscope = gyroscope;
+                this.magnetometer = magnetometer;
+            }
+
+            public override bool Equals(object obj) {
+                if (!(obj is ImuCalibrationState)) {
+                    return false;
+                }
+
+                var state = (ImuCalibrationState)obj;
+                return accelerometer == state.accelerometer &&
+                       gyroscope == state.gyroscope &&
+                       magnetometer == state.magnetometer;
+            }
+
+            public override int GetHashCode() {
+                var hashCode = -56290531;
+                hashCode = hashCode * -1521134295 + accelerometer.GetHashCode();
+                hashCode = hashCode * -1521134295 + gyroscope.GetHashCode();
+                hashCode = hashCode * -1521134295 + magnetometer.GetHashCode();
+                return hashCode;
+            }
+
+            public override string ToString() {
+                return string.Format("{{accelerometer: {0}, gyroscope: {1}, magnetometer: {2}{3}", 
+                    Enum.GetName(typeof(CalibrationAccuracy), accelerometer),
+                    Enum.GetName(typeof(CalibrationAccuracy), gyroscope),
+                    Enum.GetName(typeof(CalibrationAccuracy), magnetometer), "}");
+            }
+        }
     }
     /// <summary>
     /// Bosch algorithm combining accelerometer, gyroscope, and magnetometer data for Bosch sensors.  
@@ -212,5 +253,12 @@ namespace MbientLab.MetaWear.Core {
         /// </summary>
         /// <returns>Task that is completed when the settings are received</returns>
         Task PullConfigAsync();
+        /// <summary>
+        /// Reads the current calibration state from the sensor fusion algorithm.  This function cannot be
+        /// called until the sensor fusion algorithm is running and is only available on firmware v1.4.1+
+        /// </summary>
+        /// <returns>Current calibrartion state</returns>
+        /// <exception cref="InvalidOperationException">If device is not using min required firmware</exception>
+        Task<ImuCalibrationState> ReadCalibrationStateAsync();
     }
 }
