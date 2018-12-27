@@ -542,7 +542,7 @@ namespace MbientLab.MetaWear.Impl {
                 this.count = count;
             }
 
-            internal PackerConfig(byte[] config) :base(config[0]) {
+            internal PackerConfig(byte[] config) : base(config[0]) {
                 input = (byte)((config[1] & 0x1f) + 1);
                 count = (byte)((config[2] & 0x1f) + 1);
             }
@@ -578,6 +578,54 @@ namespace MbientLab.MetaWear.Impl {
 
             internal override string CreateIdentifier(bool state, byte procId) {
                 return string.Format("account?id={0}", procId);
+            }
+        }
+
+        internal class FuserConfig : DataProcessorConfig {
+            internal const byte ID = 0x1b;
+
+            internal readonly string[] names;
+            internal readonly byte[] filterIds;
+
+            internal FuserConfig(string[] names) :base(ID) {
+                filterIds = new byte[names.Length];
+                this.names = names;
+            }
+
+            internal FuserConfig(byte[] config) : base(config[0]) {
+                names = null;
+                filterIds = new byte[config[1] & 0x1f];
+                Array.Copy(config, 1, filterIds, 0, filterIds.Length);
+            }
+
+            internal void SyncFilterIds(DataProcessor dpModule) {
+                int i = 0;
+                foreach(var _ in names) {
+                    if (dpModule.nameToId.TryGetValue(_, out var id)) {
+                        var value = dpModule.activeProcessors[id];
+                        if (!(value.Item2.configObj is BufferConfig)) {
+                            throw new IllegalRouteOperationException($"Can only use buffer processors as inputs to the fuser (${_})");
+                        }
+
+                        filterIds[i] = id;
+                        i++;
+                    } else {
+                        throw new IllegalRouteOperationException($"No buffer named '${_}' exists");
+                    }
+                }
+            }
+
+            internal override byte[] Build() {
+                byte[] config = new byte[2 + filterIds.Length];
+                config[0] = ID;
+                config[1] = (byte) filterIds.Length;
+                Array.Copy(filterIds, 0, config, 2, filterIds.Length);
+
+                return config;
+            }
+
+            internal override string CreateIdentifier(bool state, byte procId) {
+                return $"fuser?id={procId}";
             }
         }
     }

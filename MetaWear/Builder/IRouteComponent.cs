@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MbientLab.MetaWear.Core;
+using System;
 
 namespace MbientLab.MetaWear.Builder {
     /// <summary>
@@ -366,5 +367,13 @@ namespace MbientLab.MetaWear.Builder {
         /// <param name="count">Number of input values to pack</param>
         /// <returns>Component representing the accounter output</returns>
         IRouteComponent Pack(byte count);
+
+        /// <summary>
+        /// Combines data from multiple sources into 1 packet, available on firmware v1.4.4+.  
+        /// The additional data you want to combine must first be stored into a named buffer.
+        /// </summary>
+        /// <param name="bufferNames">Named buffer components holding the extra data to combine</param>
+        /// <returns>Component representing the fuser output</returns>
+        IRouteComponent Fuse(params string[] bufferNames);
     }
 }

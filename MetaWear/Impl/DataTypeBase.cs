@@ -43,6 +43,9 @@ namespace MbientLab.MetaWear.Impl {
             markSilent();
         }
 
+        internal DataTypeBase(DataTypeBase input, Module module, byte register, DataAttributes attributes) :
+            this(input, module, register, NO_ID, attributes) { }
+
         public Tuple<byte, byte, byte> eventConfigAsTuple() {
             return Tuple.Create(eventConfig[0], eventConfig[1], eventConfig[2]);
         }
@@ -170,7 +173,7 @@ namespace MbientLab.MetaWear.Impl {
             return (input != null && !input.eventConfig.SequenceEqual(eventConfig) ? input.CreateIdentifier(bridge) + ":" : "") + myIdentifier;
         }
 
-        internal virtual Tuple<DataTypeBase, DataTypeBase> transform(DataProcessorConfig config) {
+        internal virtual Tuple<DataTypeBase, DataTypeBase> transform(DataProcessorConfig config, DataProcessor dpModule) {
             switch (config.id) {
                 case DataProcessorConfig.BufferConfig.ID:
                     return Tuple.Create(
@@ -311,6 +314,16 @@ namespace MbientLab.MetaWear.Impl {
                 case DataProcessorConfig.AccounterConfig.ID: {
                     DataProcessorConfig.AccounterConfig casted = (DataProcessorConfig.AccounterConfig)config;
                     return Tuple.Create<DataTypeBase, DataTypeBase>(dataProcessorCopy(this, new DataAttributes(new byte[] { casted.length, attributes.length() }, 1, 0, attributes.signed)), null);
+                }
+                case DataProcessorConfig.FuserConfig.ID: {
+                    byte fusedLength = attributes.length();
+                    var casted = config as DataProcessorConfig.FuserConfig;
+
+                    foreach (var _ in casted.filterIds) {
+                        fusedLength += dpModule.activeProcessors[_].Item1.attributes.length();
+                    }
+
+                        return Tuple.Create<DataTypeBase, DataTypeBase>(new FusedDataType(this, DATA_PROCESSOR, DataProcessor.NOTIFY, new DataAttributes(new byte[] { fusedLength }, 1, 0, attributes.signed)), null);
                 }
             }
             throw new InvalidOperationException("Unable to determine the DataTypeBase object for config: " + Util.ArrayToHexString(config.Build()));

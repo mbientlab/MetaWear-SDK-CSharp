@@ -21,7 +21,7 @@ namespace MbientLab.MetaWear.Test {
             MODULE_RESPONSE.Add(typeof(INeoPixel), new byte[] {0x06, 0x80, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(IIBeacon), new byte[] {0x07, 0x80, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(IHaptic), new byte[] {0x08, 0x80, 0x00, 0x00});
-            MODULE_RESPONSE.Add(typeof(IDataProcessor), new byte[] {0x09, 0x80, 0x00, 0x02, 0x1c});
+            MODULE_RESPONSE.Add(typeof(IDataProcessor), new byte[] {0x09, 0x80, 0x00, 0x03, 0x1c});
             MODULE_RESPONSE.Add(typeof(ILogging), new byte[] {0x0b, 0x80, 0x00, 0x02, 0x08, 0x80, 0x2b, 0x00, 0x00});
             MODULE_RESPONSE.Add(typeof(ISerialPassthrough), new byte[] {0x0d, 0x80, 0x00, 0x01});
             MODULE_RESPONSE.Add(typeof(IMacro), new byte[] {0x0f, 0x80, 0x00, 0x01, 0x08});

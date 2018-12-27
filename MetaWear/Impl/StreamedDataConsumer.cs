@@ -163,10 +163,16 @@ namespace MbientLab.MetaWear.Impl {
                 byte[] config = accounter.Item2.config;
                 if (config[0] == DataProcessor.TYPE_ACCOUNTER) {
                     var configObj = accounter.Item2.configObj as AccounterConfig;
-                    var logging = bridge.GetModule<ILogging>() as Logging;
                     uint tick = BitConverter.ToUInt32(response, offset);
 
-                    return Tuple.Create(logging.computeTimestamp(0xff, tick), configObj.length + offset, tick);
+                    switch (configObj.type) {
+                        case AccountType.Count:
+                            return Tuple.Create(DateTime.Now, configObj.length + offset, tick);
+                        case AccountType.Time:
+                            var logging = bridge.GetModule<ILogging>() as Logging;
+                            return Tuple.Create(logging.computeTimestamp(0xff, tick), configObj.length + offset, tick);
+                    }
+                    
                 }
             }
             return Tuple.Create(DateTime.Now, offset, (uint) 0);

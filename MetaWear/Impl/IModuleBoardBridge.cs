@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Impl {
     interface IModuleBoardBridge {
+        Action<string, Exception> OnError { get; }
         Task waitForCommands();
 
         void sendCommand(byte[] command);

@@ -58,7 +58,7 @@ namespace MbientLab.MetaWear.Impl {
                 };
             }
 
-            internal override Tuple<DataTypeBase, DataTypeBase> transform(DataProcessorConfig config) {
+            internal override Tuple<DataTypeBase, DataTypeBase> transform(DataProcessorConfig config, DataProcessor dpModule) {
                 switch (config.id) {
                     case DataProcessorConfig.CombinerConfig.ID: {
                         DataAttributes attributes = new DataAttributes(new byte[] { this.attributes.sizes[0] }, 1, 0, false);
@@ -66,7 +66,7 @@ namespace MbientLab.MetaWear.Impl {
                     }
                 }
 
-                return base.transform(config);
+                return base.transform(config, dpModule);
             }
         }
 

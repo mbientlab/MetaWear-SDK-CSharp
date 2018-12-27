@@ -8,6 +8,7 @@ using MbientLab.MetaWear.Data;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(QuaternionDataType))]
@@ -42,8 +43,9 @@ namespace MbientLab.MetaWear.Impl {
         private const byte ENABLE = 1, MODE = 2, OUTPUT_ENABLE = 3,
             CORRECTED_ACC = 4, CORRECTED_ROT = 5, CORRECTED_MAG = 6,
             QUATERNION = 7, EULER_ANGLES = 8, GRAVITY_VECTOR = 9, LINEAR_ACC = 0xa,
-            CALIBRATION_STATUS = 0xb;
-        private const byte CALIBRATION_STATE_REV = 1;
+            CALIBRATION_STATUS = 0xb,
+            ACC_CALIB_DATA = 0xc, GYRO_CALIB_DATA = 0xd, MAG_CALIB_DATA = 0xe;
+        private const byte CALIBRATION_STATE_REV = 1, CALIBRATION_DATA_REV = 2;
 
         [DataContract]
         private class QuaternionDataType : DataTypeBase {
@@ -349,8 +351,9 @@ namespace MbientLab.MetaWear.Impl {
 
         protected override void init() {
             readValueTask = new TimedTask<byte[]>();
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(MODE)), response => readValueTask.SetResult(response));
-            bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(CALIBRATION_STATUS)), response => readValueTask.SetResult(response));
+            foreach(var _ in new byte[] { MODE, CALIBRATION_STATUS, ACC_CALIB_DATA, GYRO_CALIB_DATA, MAG_CALIB_DATA }) {
+                bridge.addRegisterResponseHandler(Tuple.Create((byte)SENSOR_FUSION, Util.setRead(_)), response => readValueTask.SetResult(response));
+            }
         }
 
         public void Configure(Mode mode = Mode.Ndof, AccRange ar = AccRange._16g, GyroRange gr = GyroRange._2000dps,
@@ -509,6 +512,105 @@ namespace MbientLab.MetaWear.Impl {
                 return new ImuCalibrationState((CalibrationAccuracy)response[2], (CalibrationAccuracy)response[3], (CalibrationAccuracy)response[4]);
             }
             throw new InvalidOperationException(string.Format("Minimun firmware v1.4.1 required to use this function (current is {0})", bridge.getFirmware().ToString()));
+        }
+
+        public async Task<ImuCalibrationData> Calibrate(CancellationToken ct, int pollingPeriod = 1000, Action<ImuCalibrationState> progress = null) {
+            if (bridge.lookupModuleInfo(SENSOR_FUSION).revision < CALIBRATION_DATA_REV) {
+                throw new InvalidOperationException(string.Format("Minimun firmware v1.4.3 required to use this function (current is {0})", bridge.getFirmware().ToString()));
+            }
+
+            var terminate = false;
+            while(!terminate) {
+                if (ct.IsCancellationRequested) {
+                    throw new TaskCanceledException("Calibration polling cancelled");
+                }
+
+                try {
+                    bool calibrated = false;
+                    var state = await ReadCalibrationStateAsync();
+                    switch (mode) {
+                        case Mode.Ndof:
+                            calibrated = state.accelerometer == CalibrationAccuracy.HighAccuracy &&
+                                state.gyroscope == CalibrationAccuracy.HighAccuracy &&
+                                state.magnetometer == CalibrationAccuracy.HighAccuracy;
+                            break;
+                        case Mode.ImuPlus:
+                            calibrated = state.accelerometer == CalibrationAccuracy.HighAccuracy &&
+                                state.gyroscope == CalibrationAccuracy.HighAccuracy;
+                            break;
+                        case Mode.Compass:
+                            calibrated = state.accelerometer == CalibrationAccuracy.HighAccuracy &&
+                                state.magnetometer == CalibrationAccuracy.HighAccuracy;
+                            break;
+                        case Mode.M4g:
+                            calibrated = state.accelerometer == CalibrationAccuracy.HighAccuracy &&
+                                state.magnetometer == CalibrationAccuracy.HighAccuracy;
+                            break;
+                    }
+                    progress?.Invoke(state);
+                    if (calibrated) {
+                        terminate = true;
+                    } else {
+                        await Task.Delay(pollingPeriod);
+                    }
+                } catch (Exception e) {
+                    bridge.OnError?.Invoke("Failed to read calibration state", e);
+                    await Task.Delay(pollingPeriod);
+                }
+            }
+
+            byte[] sensorCalibs = new byte[0];
+            switch (mode) {
+                case Mode.Ndof:
+                    sensorCalibs = new byte[] { ACC_CALIB_DATA, GYRO_CALIB_DATA, MAG_CALIB_DATA };
+                    break;
+                case Mode.ImuPlus:
+                    sensorCalibs = new byte[] { ACC_CALIB_DATA, GYRO_CALIB_DATA, 0xff };
+                    break;
+                case Mode.Compass:
+                    sensorCalibs = new byte[] { ACC_CALIB_DATA, 0xff, MAG_CALIB_DATA };
+                    break;
+                case Mode.M4g:
+                    sensorCalibs = new byte[] { ACC_CALIB_DATA, 0xff, MAG_CALIB_DATA };
+                    break;
+            }
+
+            byte[][] responses = new byte[sensorCalibs.Length][];
+            var i = 0;
+            foreach (var _ in sensorCalibs) {
+                if (_ != 0xff) {
+                    var response = await readValueTask.Execute($"Did not received calibration data ({_}) within {{0}}ms", bridge.TimeForResponse,
+                            () => bridge.sendCommand(new byte[] { (byte)SENSOR_FUSION, Util.setRead(_) }));
+                    responses[i] = new byte[10];
+                    Array.Copy(response, 2, responses[i], 0, responses[i].Length);
+                } else {
+                    responses[i] = null;
+                }
+                i++;
+            }
+
+            return new ImuCalibrationData(responses[0], responses[1], responses[2]);
+        }
+
+        public void WriteCalibrationData(ImuCalibrationData data) {
+            void write(byte register, byte[] value) {
+                byte[] cmd = new byte[value.Length + 2];
+                Array.Copy(value, 0, cmd, 2, value.Length);
+                cmd[0] = (byte)SENSOR_FUSION;
+                cmd[1] = register;
+
+                bridge.sendCommand(cmd);
+            }
+
+            if (data.accelerometer != null) {
+                write(ACC_CALIB_DATA, data.accelerometer);
+            }
+            if (data.gyroscope != null) {
+                write(GYRO_CALIB_DATA, data.gyroscope);
+            }
+            if (data.magnetometer != null) {
+                write(MAG_CALIB_DATA, data.magnetometer);
+            }
         }
     }
 }

@@ -1,16 +1,21 @@
 ﻿using MbientLab.MetaWear.Core;
 using MbientLab.MetaWear.Core.SensorFusionBosch;
 using MbientLab.MetaWear.Data;
+using MbientLab.MetaWear.Impl;
 using MbientLab.MetaWear.Sensor;
 using MbientLab.MetaWear.Sensor.GyroBmi160;
 using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MbientLab.MetaWear.Test {
     public class SensorFusionBoschTestDataClass {
+        public static IEnumerable ConfigModes => Enum.GetValues(typeof(Mode));
+
         public static IEnumerable ConfigureTestCases {
             get {
                 List<TestCaseData> testCases = new List<TestCaseData>();
@@ -276,6 +281,18 @@ namespace MbientLab.MetaWear.Test {
                 await sensorFusion.ReadCalibrationStateAsync();
             });
         }
+
+        [Test]
+        public void Calibrate() {
+            Assert.ThrowsAsync<InvalidOperationException>(async () => {
+                try {
+                    var cts = new CancellationTokenSource();
+                    await sensorFusion.Calibrate(cts.Token);
+                } catch (AggregateException e) {
+                    throw e.InnerException;
+                }
+            });
+        }
     }
 
     [Parallelizable]
@@ -289,8 +306,7 @@ namespace MbientLab.MetaWear.Test {
         public async override Task SetUp() {
             await base.SetUp();
 
-            platform.customResponses.Add(new byte[] { 0x19, 0x8b },
-                    new byte[] { 0x19, 0x8b, 0x00, 0x01, 0x02 });
+            platform.customResponses.Add(new byte[] { 0x19, 0x8b }, new byte[] { 0x19, 0x8b, 0x00, 0x01, 0x02 });
         }
 
         [Test]
@@ -303,6 +319,122 @@ namespace MbientLab.MetaWear.Test {
             var actual = await sensorFusion.ReadCalibrationStateAsync();
 
             Assert.That(actual, Is.EqualTo(expectedState));
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+    }
+
+    [Parallelizable]
+    [TestFixture]
+    class SensorFusionBoschRev2Test : SensorFusionBoschRev1Test {
+        private static readonly byte[] ACC = new byte[] { 0x19, 0x0c, 0xf6, 0xff, 0x00, 0x00, 0x0a, 0x00, 0xe8, 0x03, 0x03, 0x00 },
+                GYRO = new byte[] { 0x19, 0x0d, 0x04, 0x00, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00 },
+                MAG = new byte[] { 0x19, 0x0e, 0x66, 0x00, 0x17, 0xfd, 0x8a, 0xfc, 0x7f, 0x03, 0x01, 0x00 };
+
+        public SensorFusionBoschRev2Test() : base() {
+            platform.initResponse.moduleResponses[0x19][3] = 0x2;
+        }
+
+        [Test]
+        public void CalibrateCancelled() {
+            platform.customResponses.Remove(new byte[] { 0x19, 0x8b });
+            Assert.ThrowsAsync<TaskCanceledException>(async () => {
+                try {
+                    var cts = new CancellationTokenSource();
+
+                    cts.CancelAfter(5000);
+                    await sensorFusion.Calibrate(cts.Token);
+                } catch (AggregateException e) {
+                    throw e.InnerException;
+                }
+            });
+        }
+
+        [Test]
+        [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "ConfigModes")]
+        public async Task Calibrate(Mode mode) {
+            byte[][] expected = null;
+
+            switch (mode) {
+                case Mode.Ndof:
+                    expected = new byte[][] {
+                        new byte[] { 0x19, 0x8b },
+                        new byte[] { 0x19, 0x8c },
+                        new byte[] { 0x19, 0x8d },
+                        new byte[] { 0x19, 0x8e },
+                    };
+                    break;
+                case Mode.ImuPlus:
+                    expected = new byte[][] {
+                        new byte[] { 0x19, 0x8b },
+                        new byte[] { 0x19, 0x8c },
+                        new byte[] { 0x19, 0x8d },
+                    };
+                    break;
+                case Mode.Compass:
+                    expected = new byte[][] {
+                        new byte[] { 0x19, 0x8b },
+                        new byte[] { 0x19, 0x8c },
+                        new byte[] { 0x19, 0x8e },
+                    };
+                    break;
+                case Mode.M4g:
+                    expected = new byte[][] {
+                        new byte[] { 0x19, 0x8b },
+                        new byte[] { 0x19, 0x8c },
+                        new byte[] { 0x19, 0x8e },
+                    };
+                    break;
+            }
+            
+            platform.customResponses[new byte[] { 0x19, 0x8b }] = new byte[] { 0x19, 0x8b, 0x03, 0x03, 0x03 };
+
+            var copy = (new byte[ACC.Length], new byte[GYRO.Length], new byte[MAG.Length]);
+            Array.Copy(ACC, copy.Item1, ACC.Length);
+            Array.Copy(GYRO, copy.Item2, GYRO.Length);
+            Array.Copy(MAG, copy.Item3, MAG.Length);
+            copy.Item1[1] |= 0x80;
+            copy.Item2[1] |= 0x80;
+            copy.Item3[1] |= 0x80;
+
+            platform.customResponses.Add(new byte[] { 0x19, 0x8c }, copy.Item1);
+            platform.customResponses.Add(new byte[] { 0x19, 0x8d }, copy.Item2);
+            platform.customResponses.Add(new byte[] { 0x19, 0x8e }, copy.Item3);
+
+            var cts = new CancellationTokenSource();
+            sensorFusion.Configure(mode: mode);
+            platform.commands.Clear();
+            var actual = await sensorFusion.Calibrate(cts.Token);
+
+            Assert.That(platform.GetCommands(), Is.EqualTo(expected));
+        }
+
+        [Test]
+        [TestCaseSource(typeof(SensorFusionBoschTestDataClass), "ConfigModes")]
+        public void WriteCalibrationData(Mode mode) {
+            var unwrapped = (ACC.Skip(2).ToArray(), GYRO.Skip(2).ToArray(), MAG.Skip(2).ToArray());
+            byte[][] expected = null;
+
+            ImuCalibrationData? data = null;
+            switch (mode) {
+                case Mode.Ndof:
+                    data = new ImuCalibrationData(unwrapped.Item1, unwrapped.Item2, unwrapped.Item3);
+                    expected = new byte[][] { ACC, GYRO, MAG };
+                    break;
+                case Mode.ImuPlus:
+                    data = new ImuCalibrationData(unwrapped.Item1, unwrapped.Item2, null);
+                    expected = new byte[][] { ACC, GYRO };
+                    break;
+                case Mode.Compass:
+                    data = new ImuCalibrationData(unwrapped.Item1, null, unwrapped.Item3);
+                    expected = new byte[][] { ACC, MAG };
+                    break;
+                case Mode.M4g:
+                    data = new ImuCalibrationData(unwrapped.Item1, null, unwrapped.Item3);
+                    expected = new byte[][] { ACC, MAG };
+                    break;
+            }
+
+            sensorFusion.WriteCalibrationData(data.Value);
             Assert.That(platform.GetCommands(), Is.EqualTo(expected));
         }
     }

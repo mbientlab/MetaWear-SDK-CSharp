@@ -43,7 +43,7 @@ namespace MbientLab.MetaWear.Impl {
     [KnownType(typeof(DataTypeBase))]
     [DataContract]
     class DataProcessor : ModuleImplBase, IDataProcessor {
-        internal static String createIdentifier(DataTypeBase dataType, DataProcessor dataprocessor, Version firmware, byte revision) {
+        internal static string createIdentifier(DataTypeBase dataType, DataProcessor dataprocessor, Version firmware, byte revision) {
             byte register = Util.clearRead(dataType.eventConfig[1]);
             switch (register) {
                 case NOTIFY:
@@ -63,7 +63,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         internal const byte TYPE_ACCOUNTER = 0x11, TYPE_PACKER = 0x10;
-        internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2, EXPANDED_DELAY = 2;
+        internal const byte TIME_PASSTHROUGH_REVISION = 1, ENHANCED_STREAMING_REVISION = 2, HPF_REVISION = 2, EXPANDED_DELAY = 2, FUSE_REVISION = 3;
         internal const byte ADD = 2,
                 NOTIFY = 3,
                 STATE = 4,
@@ -138,6 +138,10 @@ namespace MbientLab.MetaWear.Impl {
                 while (pendingProcessors.Count != 0) {
                     Tuple<DataTypeBase, EditorImplBase> current = pendingProcessors.First.Value;
                     DataTypeBase input = current.Item2.source.input;
+
+                    if (current.Item2.configObj is DataProcessorConfig.FuserConfig) {
+                        (current.Item2.configObj as DataProcessorConfig.FuserConfig).SyncFilterIds(this);
+                    }
 
                     byte[] filterConfig = new byte[input.eventConfig.Length + 1 + current.Item2.config.Length];
                     filterConfig[input.eventConfig.Length] = (byte)(((input.attributes.length() - 1) << 5) | input.attributes.offset);

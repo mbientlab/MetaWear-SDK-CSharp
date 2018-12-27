@@ -214,7 +214,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             DataProcessorConfig config = new DataProcessorConfig.AverageConfig(source.attributes, samples, hpf, hasHpf);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
             
             return postCreate(next.Item2, new AverageEditorInner(config, next.Item1, state.bridge));
         }
@@ -289,7 +289,7 @@ namespace MbientLab.MetaWear.Impl {
 
             byte output = 4;
             DataProcessorConfig config = new AccumulatorConfig(counter, output, source.attributes.length());
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
             
             EditorImplBase editor = counter ?
                 new CounterEditorInner(config, next.Item1, state.bridge) as EditorImplBase :
@@ -406,7 +406,7 @@ namespace MbientLab.MetaWear.Impl {
             if (state.bridge.getFirmware().CompareTo(MULTI_COMPARISON_MIN_FIRMWARE) < 0) {
                 float scaledReference = references[0] * source.scale(state.bridge);
                 DataProcessorConfig config = new SingleValueComparisonConfig(source.attributes.signed, op, (int)scaledReference);
-                var next = source.transform(config);
+                var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
                     
                 return postCreate(next.Item2, new SingleValueComparatorEditor(config, next.Item1, state.bridge));
             }
@@ -420,7 +420,7 @@ namespace MbientLab.MetaWear.Impl {
             {
                 DataProcessorConfig config = new MultiValueComparisonConfig(signed, source.attributes.length(), op, output,
                     MultiValueComparatorEditor.fillReferences(source.scale(state.bridge), source, references));
-                var next = source.transform(config);
+                var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
                 return postCreate(next.Item2, new MultiValueComparatorEditor(config, next.Item1, state.bridge));
             }
@@ -554,7 +554,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new MathConfig(source.attributes, multiChnlMath, op, scaledRhs);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
             config.output = next.Item1.attributes.sizes[0];
 
             return postCreate(next.Item2, new MapEditorInner(config, next.Item1, state.bridge));
@@ -568,7 +568,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new CombinerConfig(source.attributes, rss);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }
@@ -595,7 +595,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new PassthroughConfig(type, value);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new PassthroughEditorInner(config, next.Item1, state.bridge));
         }
@@ -612,7 +612,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new DelayConfig(enhanced, source.attributes.length(), samples);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }
@@ -643,7 +643,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new PulseConfig(source.attributes.length(), (int) (threshold * source.scale(state.bridge)), samples, pulse);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new PulseEditorInner(config, next.Item1, state.bridge));
         }
@@ -678,7 +678,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new ThresholdConfig(source.attributes, threshold, (int)(boundary * source.scale(state.bridge)), (short)(hysteresis * source.scale(state.bridge)));
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new ThresholdEditorInner(config, next.Item1, state.bridge));
         }
@@ -707,7 +707,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new DifferentialConfig(source.attributes, differential, (int)(distance * source.scale(state.bridge)));
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new DifferentialEditorInner(config, next.Item1, state.bridge));
         }
@@ -733,7 +733,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new TimeConfig(source.attributes.length(), (byte) (hasTimePassthrough ? 2 : 0), period);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new TimeEditorInner(config, next.Item1, state.bridge));
         }
@@ -755,7 +755,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             var config = new PackerConfig(source.attributes.length(), count);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new PackerEditorInner(config, next.Item1, state.bridge));
         }
@@ -775,7 +775,18 @@ namespace MbientLab.MetaWear.Impl {
             }
             
             var config = new AccounterConfig(type, size);
-            var next = source.transform(config);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
+
+            return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
+        }
+
+        public IRouteComponent Fuse(params string[] bufferNames) {
+            if (state.bridge.lookupModuleInfo(DATA_PROCESSOR).revision < DataProcessor.FUSE_REVISION) {
+                throw new IllegalRouteOperationException("Current firmware does not support data fusing");
+            }
+
+            var config = new FuserConfig(bufferNames);
+            var next = source.transform(config, state.bridge.GetModule<IDataProcessor>() as DataProcessor);
 
             return postCreate(next.Item2, new NullEditor(config, next.Item1, state.bridge));
         }

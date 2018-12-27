@@ -221,7 +221,7 @@ namespace MbientLab.MetaWear.Test {
             {"NeoPixel", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 0 } } },
             {"IBeacon", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 0 } } },
             {"Haptic", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 0 } } },
-            {"DataProcessor", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 2 }, { "extra", "[0x1c]" } } },
+            {"DataProcessor", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 3 }, { "extra", "[0x1c]" } } },
             {"Event", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 0 }, { "extra", "[0x1c]" } } },
             {"Logging", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 2 }, { "extra", "[0x08, 0x80, 0x2b, 0x00, 0x00]" } } },
             {"Timer", new Dictionary<string, object>() { {"implementation", 0 }, {"revision", 0 }, { "extra", "[0x08]" } } },

@@ -325,7 +325,7 @@ namespace MbientLab.MetaWear.Impl {
         }
 
         internal DateTime computeTimestamp(byte resetUid, uint tick) {
-            int difference(uint a, uint b) {
+            int signedDifference(uint a, uint b) {
                 return (int)(a - b);
             }
 
@@ -334,7 +334,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             if (lastTimestamp.TryGetValue(resetUid, out uint previous) && previous > tick) {
-                var offset = (difference(tick, previous) + difference(previous, reference.tick)) * TICK_TIME_STEP;
+                var offset = ((tick - previous) + signedDifference(previous, reference.tick)) * TICK_TIME_STEP;
                 reference.timestamp = reference.timestamp.AddMilliseconds((long) (offset));
                 reference.tick = tick;
                 
@@ -344,7 +344,7 @@ namespace MbientLab.MetaWear.Impl {
             }
 
             lastTimestamp[resetUid] = tick;
-            return reference.timestamp.AddMilliseconds((long)(difference(tick, reference.tick) * TICK_TIME_STEP));
+            return reference.timestamp.AddMilliseconds((long)(signedDifference(tick, reference.tick) * TICK_TIME_STEP));
         }
 
         internal async Task<ICollection<LoggedDataConsumer>> queryActiveLoggersAsync() {
@@ -420,7 +420,7 @@ namespace MbientLab.MetaWear.Impl {
                         while (chain.Count() != 0) {
                             var current = chain.Pop();
                             var currentConfigObj = DataProcessorConfig.from(bridge.getFirmware(), bridge.lookupModuleInfo(DATA_PROCESSOR).revision, current.config);
-                            var next = type.transform(currentConfigObj);
+                            var next = type.transform(currentConfigObj, bridge.GetModule<IDataProcessor>() as DataProcessor);
 
                             next.Item1.eventConfig[2] = current.id;
                             if (next.Item2 != null) {

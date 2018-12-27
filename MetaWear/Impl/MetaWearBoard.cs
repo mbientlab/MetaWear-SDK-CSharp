@@ -224,6 +224,7 @@ namespace MbientLab.MetaWear.Impl {
             private MetaWearBoard metawear;
             private Queue<Tuple<byte[], TaskCompletionSource<bool>>> commands = new Queue<Tuple<byte[], TaskCompletionSource<bool>>>();
 
+            public Action<string, Exception> OnError => metawear.OnError;
             public int TimeForResponse => metawear.timeForResponse;
 
             public ModuleBoardBridge(MetaWearBoard metawear) {
