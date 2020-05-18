@@ -1,0 +1,24 @@
+﻿<Page
+    x:Class="RealTimeGraph.LineGraph"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:RealTimeGraph"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:oxy="using:OxyPlot.Windows"
+    mc:Ignorable="d">
+
+    <Page.DataContext>
+        <local:MainViewModel/>
+    </Page.DataContext>
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="100*" />
+            <RowDefinition Height="850*" />
+            <RowDefinition Height="50*" />
+        </Grid.RowDefinitions>
+        <ToggleSwitch x:Name="streamSwitch" Header="Stream" HorizontalAlignment="Stretch" Margin="10,10,10,0"  Toggled="streamSwitch_Toggled"/>
+        <oxy:PlotView Model="{Binding MyModel}" Grid.Row="1"/>
+        <Button x:Name="back" Content="Back" HorizontalAlignment="Stretch" VerticalAlignment="Bottom" Click="back_Click" Grid.Row="2"/>
+    </Grid>
+</Page>
