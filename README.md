@@ -8,7 +8,7 @@
 
 SDK for creating MetaWear apps on the Windows platform. The SDK is distributed on NuGet as a platform agnostic, .NET Standard 2.0 assembly.  
 
-Also, check out the scripts in the [examples](https://github.com/mbientlab/MetaWear-SDK-CSharp/tree/master/example) folder for sample code.
+Also, check out the scripts in the [examples](https://github.com/mbientlab/MetaWear-SDK-CSharp/tree/master/examples) folder for sample code.
 
 > ADDITIONAL NOTES  
 Due to its platform agnostic nature, developers will need to plugin their own BLE stack and file i/o code specific to their target environment.
