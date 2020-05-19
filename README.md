@@ -1,7 +1,7 @@
 # MetaWear  SDK for C# by MBIENTLAB
 
 [![Platforms](https://img.shields.io/badge/platform-win--32%20%7C%20win--64-lightgrey?style=flat)](https://github.com/mbientlab/MetaWear-SDK-CSharp)
-[![License](https://img.shields.io/cocoapods/l/MetaWear.svg?style=flat)](https://mbientlab.com/license)
+[![License](https://img.shields.io/cocoapods/l/MetaWear.svg?style=flat)](https://github.com/mbientlab/MetaWear-SDK-CSharp/blob/master/LICENSE.md)
 [![Version](https://img.shields.io/nuget/v/MetaWear.CSharp)](https://www.nuget.org/packages/MetaWear.CSharp)
 
 ![alt tag](https://raw.githubusercontent.com/mbientlab/MetaWear-SDK-iOS-macOS-tvOS/master/Images/Metawear.png)
@@ -26,7 +26,7 @@ The MetaWear hardware comes pre-loaded with a wirelessly upgradeable firmware, s
 - A linux or Windows 10+ machine with Bluetooth 4.0
 
 ### License
-See the [License](https://github.com/mbientlab/MetaWear-SDK-CSharp/blob/master/LICENSE).
+See the [License](https://github.com/mbientlab/MetaWear-SDK-CSharp/blob/master/LICENSE.md).
 
 ### Support
 Reach out to the [community](https://mbientlab.com/community/) if you encounter any problems, or just want to chat :)
